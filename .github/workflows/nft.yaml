@@ -55,6 +55,25 @@ jobs:
           KRAB_REDIS_URL=redis://127.0.0.1:6379
           EOF
 
+      - name: Diagnostics — NFT compose preflight
+        run: |
+          echo ".env present?"
+          if [ -f .env ]; then echo "yes"; else echo "no"; fi
+
+          for key in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_DB_USERS KRAB_BEARER_TOKEN KRAB_REDIS_URL; do
+            if [ -n "${!key:-}" ]; then
+              echo "$key=present"
+            else
+              echo "$key=missing"
+            fi
+          done
+
+          docker compose -f docker-compose.yml -f docker-compose.nft.yaml config > /tmp/nft-compose-rendered.yaml 2> /tmp/nft-compose-config.err || true
+          echo "--- docker compose config stderr (if any) ---"
+          cat /tmp/nft-compose-config.err || true
+          echo "--- docker compose config preview ---"
+          head -n 120 /tmp/nft-compose-rendered.yaml || true
+
       - name: Start single-replica stack (in-network)
         run: |
           docker compose \

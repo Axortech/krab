@@ -78,6 +78,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Diagnostics — docker compose env and config preflight
+        run: |
+          echo ".env present?"
+          if [ -f .env ]; then echo "yes"; else echo "no"; fi
+
+          for key in KRAB_BEARER_TOKEN POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_DB_USERS KRAB_REDIS_URL; do
+            if [ -n "${!key:-}" ]; then
+              echo "$key=present"
+            else
+              echo "$key=missing"
+            fi
+          done
+
+          docker compose config > /tmp/compose-rendered.yaml 2> /tmp/compose-config.err || true
+          echo "--- docker compose config stderr (if any) ---"
+          cat /tmp/compose-config.err || true
+          echo "--- docker compose config preview ---"
+          head -n 120 /tmp/compose-rendered.yaml || true
+
       - name: Build and start all services
         run: docker compose up -d --build --wait
         timeout-minutes: 10

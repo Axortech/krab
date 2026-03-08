@@ -1,5 +1,6 @@
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
+use sqlx::Row;
 use anyhow::Result;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -24,14 +25,28 @@ fn csv_env(name: &str, default: &str) -> Vec<String> {
 
 pub type DbPool = Pool<Postgres>;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone)]
 pub struct MigrationRecord {
     pub version: i64,
     pub name: String,
     pub checksum: String,
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+impl<'r, R> sqlx::FromRow<'r, R> for MigrationRecord
+where
+    R: Row,
+    &'r str: sqlx::ColumnIndex<R>,
+{
+    fn from_row(row: &'r R) -> std::result::Result<Self, sqlx::Error> {
+        Ok(Self {
+            version: row.try_get("version")?,
+            name: row.try_get("name")?,
+            checksum: row.try_get("checksum")?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct UserModel {
     pub id: String,
     pub username: String,
@@ -39,6 +54,23 @@ pub struct UserModel {
     pub tenant_id: Option<String>,
     pub created_at: sqlx::types::time::OffsetDateTime,
     pub updated_at: sqlx::types::time::OffsetDateTime,
+}
+
+impl<'r, R> sqlx::FromRow<'r, R> for UserModel
+where
+    R: Row,
+    &'r str: sqlx::ColumnIndex<R>,
+{
+    fn from_row(row: &'r R) -> std::result::Result<Self, sqlx::Error> {
+        Ok(Self {
+            id: row.try_get("id")?,
+            username: row.try_get("username")?,
+            email: row.try_get("email")?,
+            tenant_id: row.try_get("tenant_id")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

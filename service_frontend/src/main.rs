@@ -1223,15 +1223,16 @@ mod tests {
         normalize_public_base_url, normalize_service_base_url, ready_handler,
         redact_email_for_log, redact_name_for_log, render_about_page, render_blog_page,
         render_home_page, robots_txt_handler, rpc_now_json, rpc_version_json,
-        sitemap_xml_handler, AppState, RuntimeState, SERVER_FUNCTION_VERSION,
+        sitemap_xml_handler, AppState, CachedHttpPayload, RuntimeState, SERVER_FUNCTION_VERSION,
     };
     use axum::extract::State;
     use axum::Json;
+    use krab_core::http::HasRuntimeState;
     use krab_core::isr::IsrCache;
     use reqwest::Client;
     use std::collections::HashSet;
     use std::sync::Arc;
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
 
     const P95_SSR_RENDER_MS_THRESHOLD: u128 = 6;
     const P99_SSR_RENDER_MS_THRESHOLD: u128 = 12;

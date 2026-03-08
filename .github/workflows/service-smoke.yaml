@@ -28,12 +28,30 @@ jobs:
       - name: Build service binaries (auth + users + frontend)
         run: cargo build --bin service_auth --bin service_users --bin service_frontend
 
+      - name: Diagnostics — auth startup env preflight
+        run: |
+          echo "KRAB_ENVIRONMENT=${KRAB_ENVIRONMENT:-<unset>}"
+          echo "KRAB_AUTH_MODE=${KRAB_AUTH_MODE:-<unset>}"
+          if [ -n "${KRAB_OIDC_ISSUER:-}" ]; then
+            echo "KRAB_OIDC_ISSUER=present"
+          else
+            echo "KRAB_OIDC_ISSUER=missing"
+          fi
+          if [ -n "${KRAB_OIDC_AUDIENCE:-}" ]; then
+            echo "KRAB_OIDC_AUDIENCE=present"
+          else
+            echo "KRAB_OIDC_AUDIENCE=missing"
+          fi
+
       - name: Smoke — service_auth /health
         run: |
+          set -euo pipefail
+          KRAB_ENVIRONMENT=dev \
+          KRAB_AUTH_MODE=static \
           KRAB_HOST=127.0.0.1 \
           KRAB_PORT=13001 \
           KRAB_BEARER_TOKEN=smoke-test \
-          ./target/debug/service_auth &
+          ./target/debug/service_auth > service_auth_smoke.log 2>&1 &
           AUTH_PID=$!
           echo "service_auth started (PID $AUTH_PID)"
 
@@ -43,7 +61,11 @@ jobs:
             sleep 1
           done
 
-          curl -sf http://127.0.0.1:13001/health | jq -e '.status == "ok"'
+          if ! curl -sf http://127.0.0.1:13001/health | jq -e '.status == "ok"'; then
+            echo "service_auth smoke failed; dumping service log"
+            cat service_auth_smoke.log || true
+            exit 1
+          fi
           kill $AUTH_PID
 
       - name: Smoke — service_frontend /health

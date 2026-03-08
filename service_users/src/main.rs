@@ -25,6 +25,7 @@ use krab_core::telemetry::init_tracing;
 use serde::Serialize;
 use sqlx::SqlitePool;
 use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::Row;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::info;
@@ -111,10 +112,23 @@ impl SqliteUserRepository {
     }
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone)]
 struct UserQueryModel {
     id: String,
     username: String,
+}
+
+impl<'r, R> sqlx::FromRow<'r, R> for UserQueryModel
+where
+    R: Row,
+    &'r str: sqlx::ColumnIndex<R>,
+{
+    fn from_row(row: &'r R) -> std::result::Result<Self, sqlx::Error> {
+        Ok(Self {
+            id: row.try_get("id")?,
+            username: row.try_get("username")?,
+        })
+    }
 }
 
 #[async_trait]
