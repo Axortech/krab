@@ -1,0 +1,21 @@
+[package]
+name = "service_users"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+tokio.workspace = true
+async-graphql.workspace = true
+async-graphql-axum.workspace = true
+axum.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde_json.workspace = true
+tower.workspace = true
+tower-http = { workspace = true, features = ["cors", "compression-gzip", "request-id", "trace"] }
+krab_core = { path = "../krab_core", features = ["graphql", "rest", "db", "redis-store"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "sqlite", "macros", "uuid", "time"] }
+anyhow.workspace = true
+async-trait.workspace = true

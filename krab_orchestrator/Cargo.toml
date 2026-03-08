@@ -1,0 +1,15 @@
+[package]
+name = "krab_orchestrator"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true, features = ["derive"] }
+config = "0.14"
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+krab_core = { path = "../krab_core" }

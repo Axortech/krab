@@ -1,0 +1,88 @@
+name: DX and Operations Hardening
+
+on:
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+      - 'krab_core/**'
+      - 'krab_macros/**'
+      - 'krab_cli/**'
+      - 'krab_server/**'
+      - 'krab_orchestrator/**'
+      - 'service_auth/**'
+      - 'service_users/**'
+      - 'service_frontend/**'
+      - 'krab_client/**'
+      - 'Dockerfile.service'
+      - 'docker-compose.yml'
+      - 'krab.toml'
+      - '.env.example'
+      - '.github/workflows/ops-hardening.yaml'
+      - '.github/workflows/db-lifecycle.yaml'
+      - '.github/workflows/api-contract.yaml'
+      - '.github/workflows/e2e-depth.yaml'
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-format-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cargo fmt check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy strict check
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Rustdoc build check
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps
+
+      - name: Cargo deny (security and license policy)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources
+          arguments: --all-features
+
+  migration-contract-e2e-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required workflow files exist
+        run: |
+          test -f .github/workflows/db-lifecycle.yaml
+          test -f .github/workflows/api-contract.yaml
+          test -f .github/workflows/e2e-depth.yaml
+
+  artifact-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build provenance manifest
+        run: |
+          sha256sum Cargo.lock > provenance.sha256
+          sha256sum .env.example >> provenance.sha256
+          sha256sum krab.toml >> provenance.sha256
+
+      - name: Upload provenance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krab-provenance
+          path: |
+            provenance.sha256
+            Cargo.lock
+            .env.example
+            krab.toml

@@ -1,0 +1,139 @@
+name: Non-Functional Tests (NFT)
+
+# NFT suite is expensive (load/spike/soak). Run only when explicitly requested
+# via the `KRAB_NFT=1` label on a PR, or on pushes to main.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [labeled]
+
+jobs:
+  nft-gate:
+    # On PRs, only run when the `nft` label is present.
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'nft'))
+    runs-on: ubuntu-latest
+    env:
+      KRAB_NFT: "1"
+      RUST_LOG: warn
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-nft-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run NFT suite (load / spike / soak)
+        run: |
+          cargo test \
+            --package service_frontend \
+            --features nft \
+            --release \
+            -- non_functional_ \
+            --nocapture
+
+      - name: Prepare NFT environment
+        run: |
+          cat > .env << 'EOF'
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=krab
+          POSTGRES_DB_USERS=krab_users
+          KRAB_BEARER_TOKEN=test-token
+          KRAB_REDIS_URL=redis://127.0.0.1:6379
+          EOF
+
+      - name: Start single-replica stack (in-network)
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.nft.yaml \
+            up -d --build redis postgres service_auth service_users service_frontend
+
+      - name: Run multi-service load gate (N=1)
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.nft.yaml \
+            run --rm nft_runner \
+            --mode single \
+            --json-out plans/load_test_artifacts/single_replica_results.json \
+            --markdown-out plans/load_test_artifacts/latest_summary_single.md
+
+      - name: Stop single-replica stack
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.nft.yaml \
+            down -v
+
+      - name: Start scaled stack (N=3, in-network)
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.nft.yaml \
+            up -d --build \
+            --scale service_frontend=3 \
+            --scale service_auth=3 \
+            --scale service_users=3 \
+            redis postgres service_auth service_users service_frontend
+
+      - name: Run multi-service load gate (N=3)
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.nft.yaml \
+            run --rm nft_runner \
+            --mode scaled \
+            --json-out plans/load_test_artifacts/scaled_replica_results.json \
+            --markdown-out plans/load_test_artifacts/latest_summary_scaled.md
+
+      - name: Evaluate horizontal scaling regression gate
+        run: |
+          python3 scripts/nft_scaling_compare.py \
+            plans/load_test_artifacts/single_replica_results.json \
+            plans/load_test_artifacts/scaled_replica_results.json
+
+      - name: Append trend history rows
+        if: always()
+        env:
+          KRAB_SHARED_STATE_MODE: redis
+        run: |
+          python3 scripts/nft_append_trends.py \
+            plans/load_test_artifacts/single_replica_results.json \
+            plans/load_test_artifacts/scaled_replica_results.json
+
+      - name: Stop multi-service stack
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.nft.yaml \
+            down -v
+
+      - name: Upload NFT results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nft-results-${{ github.run_id }}
+          path: |
+            target/criterion/
+            plans/load_test_artifacts/latest_summary.md
+            plans/load_test_artifacts/latest_summary_single.md
+            plans/load_test_artifacts/latest_summary_scaled.md
+            plans/load_test_artifacts/single_replica_results.json
+            plans/load_test_artifacts/scaled_replica_results.json
+            plans/load_test_artifacts/trend_history.csv

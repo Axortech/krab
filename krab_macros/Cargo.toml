@@ -1,0 +1,17 @@
+[package]
+name = "krab_macros"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+krab_core = { path = "../krab_core" }
+trybuild = { version = "1.0", features = ["diff"] }

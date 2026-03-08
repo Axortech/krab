@@ -1,0 +1,9 @@
+timestamp_utc,service,framework,route,profile,replica_mode,shared_state_mode,samples,p95_ms,p99_ms,threshold_p95_ms,threshold_p99_ms,regression_p95_percent,regression_p99_percent,error_rate_percent,result,commit,notes
+2026-02-27T10:00:00Z,service_frontend,krab,composite,load,single,memory,1000,0,1,6,12,0,0,0,pass,local-dev,initial baseline seeded from local non-functional test profile
+2026-02-27T10:00:00Z,service_frontend,krab,composite,spike,single,memory,3000,0,1,6,12,0,0,0,pass,local-dev,initial baseline seeded from local non-functional test profile
+2026-02-27T10:00:00Z,service_frontend,krab,composite,soak,single,memory,10000,0,1,6,12,0,0,0,pass,local-dev,initial baseline seeded from local non-functional test profile
+2026-03-08T10:53:42Z,benchmark,krab,home,load,single,none,1000,6.37,8.36,0,0,0,0,88.0,info,local-dev,external-benchmark
+2026-03-08T10:53:42Z,benchmark,krab,blog_post,load,single,none,1000,9.74,15.85,0,0,0,0,97.2,info,local-dev,external-benchmark
+2026-03-08T10:53:42Z,benchmark,krab,api_status,load,single,none,1000,2156.87,2348.37,0,0,0,0,0.0,info,local-dev,external-benchmark
+2026-03-08T10:53:42Z,benchmark,krab,api_mutation,load,single,none,1000,16.19,16.19,0,0,0,0,98.4,info,local-dev,external-benchmark
+2026-03-08T10:53:42Z,benchmark,krab,health,load,single,none,1000,9.27,16.75,0,0,0,0,94.3,info,local-dev,external-benchmark

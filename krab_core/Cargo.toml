@@ -1,0 +1,46 @@
+[package]
+name = "krab_core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+tokio = { workspace = true, features = ["full", "macros"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, optional = true }
+redis = { version = "0.27", features = ["tokio-comp"], optional = true }
+config = "0.14"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+tower-http = { workspace = true, optional = true, features = ["compression-gzip", "cors", "request-id", "trace", "limit"] }
+tower = { workspace = true, optional = true, features = ["util"] }
+jsonwebtoken = { version = "9", optional = true }
+uuid = { version = "1", features = ["v4"], optional = true }
+
+# API Frameworks (Optional)
+axum = { workspace = true, optional = true }
+async-graphql = { workspace = true, optional = true }
+tonic = { version = "0.10", optional = true }
+
+# Database (Optional)
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "macros", "uuid", "time"], optional = true }
+
+[features]
+default = []
+rest = ["dep:axum", "dep:tower-http", "dep:serde_json", "dep:jsonwebtoken", "dep:tower", "dep:uuid"]
+redis-store = ["dep:redis"]
+
+graphql = ["dep:async-graphql"]
+grpc = ["dep:tonic"]
+db = ["dep:sqlx", "dep:serde_json"]
+web = ["dep:web-sys"]
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["Event"]
+optional = true
+
+[dev-dependencies]
+serial_test = "3"

@@ -1,0 +1,39 @@
+[graph]
+all-features = true
+
+[advisories]
+unsound = "all"
+yanked = "deny"
+unmaintained = "all"
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "CDLA-Permissive-2.0",
+  "Unicode-DFS-2016",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+deny = []
+# sha1 v0.10.x is a transitive dependency of axum (via tungstenite) and cannot
+# be removed. It is not used directly for any security operation in this codebase.
+# Skipped here to prevent false-positive cargo-deny failures.
+skip = [
+  { name = "sha1", reason = "transitive dep of axum/tungstenite; not used for security operations" },
+]
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
