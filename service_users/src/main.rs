@@ -122,6 +122,7 @@ impl<'r, R> sqlx::FromRow<'r, R> for UserQueryModel
 where
     R: Row,
     &'r str: sqlx::ColumnIndex<R>,
+    String: sqlx::Decode<'r, R::Database> + sqlx::Type<R::Database>,
 {
     fn from_row(row: &'r R) -> std::result::Result<Self, sqlx::Error> {
         Ok(Self {

@@ -36,6 +36,8 @@ impl<'r, R> sqlx::FromRow<'r, R> for MigrationRecord
 where
     R: Row,
     &'r str: sqlx::ColumnIndex<R>,
+    i64: sqlx::Decode<'r, R::Database> + sqlx::Type<R::Database>,
+    String: sqlx::Decode<'r, R::Database> + sqlx::Type<R::Database>,
 {
     fn from_row(row: &'r R) -> std::result::Result<Self, sqlx::Error> {
         Ok(Self {
@@ -60,6 +62,8 @@ impl<'r, R> sqlx::FromRow<'r, R> for UserModel
 where
     R: Row,
     &'r str: sqlx::ColumnIndex<R>,
+    String: sqlx::Decode<'r, R::Database> + sqlx::Type<R::Database>,
+    sqlx::types::time::OffsetDateTime: sqlx::Decode<'r, R::Database> + sqlx::Type<R::Database>,
 {
     fn from_row(row: &'r R) -> std::result::Result<Self, sqlx::Error> {
         Ok(Self {
