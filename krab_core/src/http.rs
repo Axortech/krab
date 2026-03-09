@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axum::body::Body;
@@ -13,7 +13,7 @@ use axum::http::{HeaderName, HeaderValue, Method, Request, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::{Json, Router};
-use jsonwebtoken::{DecodingKey, Validation, decode, decode_header};
+use jsonwebtoken::{decode, decode_header, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tower_http::compression::CompressionLayer;
@@ -21,9 +21,9 @@ use tower_http::limit::RequestBodyLimitLayer;
 
 use tracing::{debug, info, warn};
 
-use crate::store::{DistributedStore, MemoryStore};
 #[cfg(feature = "redis-store")]
 use crate::store::RedisStore;
+use crate::store::{DistributedStore, MemoryStore};
 
 // --- API Contract & Error Model ---
 
@@ -73,7 +73,7 @@ impl axum::response::IntoResponse for ApiError {
         // If we want it in the body, we'd need to extract it here from extensions if possible,
         // but IntoResponse doesn't have access to the request parts easily.
         // For now, we rely on the response header `x-request-id` which is added by middleware.
-        // The `request_id` field in the body is optional and can be populated if the error is created 
+        // The `request_id` field in the body is optional and can be populated if the error is created
         // in a context where the ID is known.
 
         (status, Json(self)).into_response()
@@ -153,8 +153,14 @@ impl RuntimeState {
             started_at: Instant::now(),
             store,
             latency_buckets: Arc::new([
-                AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
-                AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
+                AtomicU64::new(0),
             ]),
             readiness_status: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             rate_limit_capacity: http_cfg.rate_limit_capacity as f64,
@@ -251,9 +257,15 @@ where
 
     // Update readiness gauge
     if has_critical_failure {
-        state.runtime_state().readiness_status.store(false, Ordering::Relaxed);
+        state
+            .runtime_state()
+            .readiness_status
+            .store(false, Ordering::Relaxed);
     } else {
-        state.runtime_state().readiness_status.store(true, Ordering::Relaxed);
+        state
+            .runtime_state()
+            .readiness_status
+            .store(true, Ordering::Relaxed);
     }
 
     let uptime_seconds = state.runtime_state().started_at.elapsed().as_secs();
@@ -328,9 +340,7 @@ where
     let mut response = Response::new(Body::from(body));
     response.headers_mut().insert(
         CONTENT_TYPE,
-        "text/plain; version=0.0.4; charset=utf-8"
-            .parse()
-            .unwrap(),
+        "text/plain; version=0.0.4; charset=utf-8".parse().unwrap(),
     );
     response
 }
@@ -404,11 +414,7 @@ fn extract_client_ip(req: &Request<Body>) -> String {
         }
     }
 
-    if let Some(value) = req
-        .headers()
-        .get("x-real-ip")
-        .and_then(|h| h.to_str().ok())
-    {
+    if let Some(value) = req.headers().get("x-real-ip").and_then(|h| h.to_str().ok()) {
         let ip = value.trim();
         if !ip.is_empty() {
             return ip.to_string();
@@ -507,9 +513,10 @@ fn is_unsafe_http_method(method: &Method) -> bool {
 
 fn csrf_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
     let raw = headers.get("cookie")?.to_str().ok()?;
-    raw.split(';')
-        .map(str::trim)
-        .find_map(|pair| pair.strip_prefix("krab_csrf_token=").map(ToString::to_string))
+    raw.split(';').map(str::trim).find_map(|pair| {
+        pair.strip_prefix("krab_csrf_token=")
+            .map(ToString::to_string)
+    })
 }
 
 fn csrf_header_token(headers: &axum::http::HeaderMap) -> Option<String> {
@@ -594,9 +601,8 @@ where
     if open || is_public {
         return Ok(next.run(req).await);
     }
-    
-    // Explicit deny-by-default for any other path if no auth method is configured or valid
 
+    // Explicit deny-by-default for any other path if no auth method is configured or valid
 
     let mode = state.runtime_state().auth_mode.clone();
     let authorized = if mode.eq_ignore_ascii_case("jwt") || mode.eq_ignore_ascii_case("oidc") {
@@ -650,7 +656,7 @@ where
                 );
                 return Err(StatusCode::TOO_MANY_REQUESTS);
             }
-            
+
             Err(code)
         }
     }
@@ -882,16 +888,14 @@ fn load_rotation_keys() -> std::collections::BTreeMap<String, String> {
         }
     }
 
-    let secret = std::env::var("KRAB_JWT_SECRET")
-        .ok()
-        .and_then(|v| {
-            let trimmed = v.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        });
+    let secret = std::env::var("KRAB_JWT_SECRET").ok().and_then(|v| {
+        let trimmed = v.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
 
     let Some(secret) = secret else {
         warn!(
@@ -1025,17 +1029,11 @@ fn validate_provider_claims(
 
 fn scopes_from_claims(claims: &JwtClaims) -> Vec<String> {
     if let Some(scope) = &claims.scope {
-        return scope
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
+        return scope.split_whitespace().map(|s| s.to_string()).collect();
     }
 
     match claims.scp.as_ref() {
-        Some(Value::String(scope)) => scope
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect(),
+        Some(Value::String(scope)) => scope.split_whitespace().map(|s| s.to_string()).collect(),
         Some(Value::Array(values)) => values
             .iter()
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
@@ -1082,8 +1080,10 @@ fn enforce_claim_policy(
     }
 
     if is_admin_api_path(path) {
-        let admin_scope = std::env::var("KRAB_AUTH_ADMIN_SCOPE").unwrap_or_else(|_| "admin".to_string());
-        let admin_role = std::env::var("KRAB_AUTH_ADMIN_ROLE").unwrap_or_else(|_| "admin".to_string());
+        let admin_scope =
+            std::env::var("KRAB_AUTH_ADMIN_SCOPE").unwrap_or_else(|_| "admin".to_string());
+        let admin_role =
+            std::env::var("KRAB_AUTH_ADMIN_ROLE").unwrap_or_else(|_| "admin".to_string());
         if !scopes.iter().any(|s| s == &admin_scope) && !roles.iter().any(|r| r == &admin_role) {
             return Err(StatusCode::UNAUTHORIZED);
         }
@@ -1382,9 +1382,7 @@ where
         .unwrap_or("unknown")
         .to_string();
     if request_id == "unknown" {
-        debug!(
-            "tracing_missing_request_id_in_inbound_headers"
-        );
+        debug!("tracing_missing_request_id_in_inbound_headers");
     }
 
     let start = Instant::now();
@@ -1395,14 +1393,23 @@ where
 
     // Update latency buckets (from State)
     let buckets = &state.runtime_state().latency_buckets;
-    if elapsed_ms <= 10 { buckets[0].fetch_add(1, Ordering::Relaxed); }
-    else if elapsed_ms <= 50 { buckets[1].fetch_add(1, Ordering::Relaxed); }
-    else if elapsed_ms <= 100 { buckets[2].fetch_add(1, Ordering::Relaxed); }
-    else if elapsed_ms <= 200 { buckets[3].fetch_add(1, Ordering::Relaxed); }
-    else if elapsed_ms <= 500 { buckets[4].fetch_add(1, Ordering::Relaxed); }
-    else if elapsed_ms <= 1000 { buckets[5].fetch_add(1, Ordering::Relaxed); }
-    else if elapsed_ms <= 2000 { buckets[6].fetch_add(1, Ordering::Relaxed); }
-    else { buckets[7].fetch_add(1, Ordering::Relaxed); }
+    if elapsed_ms <= 10 {
+        buckets[0].fetch_add(1, Ordering::Relaxed);
+    } else if elapsed_ms <= 50 {
+        buckets[1].fetch_add(1, Ordering::Relaxed);
+    } else if elapsed_ms <= 100 {
+        buckets[2].fetch_add(1, Ordering::Relaxed);
+    } else if elapsed_ms <= 200 {
+        buckets[3].fetch_add(1, Ordering::Relaxed);
+    } else if elapsed_ms <= 500 {
+        buckets[4].fetch_add(1, Ordering::Relaxed);
+    } else if elapsed_ms <= 1000 {
+        buckets[5].fetch_add(1, Ordering::Relaxed);
+    } else if elapsed_ms <= 2000 {
+        buckets[6].fetch_add(1, Ordering::Relaxed);
+    } else {
+        buckets[7].fetch_add(1, Ordering::Relaxed);
+    }
 
     // Standardize tracing attributes (OpenTelemetry conventions)
     info!(
@@ -1517,7 +1524,10 @@ mod tests {
         };
 
         let scopes = scopes_from_claims(&claims);
-        assert_eq!(scopes, vec!["users.read".to_string(), "users.write".to_string()]);
+        assert_eq!(
+            scopes,
+            vec!["users.read".to_string(), "users.write".to_string()]
+        );
     }
 
     #[test]

@@ -181,9 +181,11 @@ pub fn server_fn_router(registrations: &'static [ServerFnRegistration]) -> axum:
         let handler = reg.handler;
         router = router.route(
             reg.url,
-            post(move |axum::Json(args): axum::Json<serde_json::Value>| async move {
-                handler(args).await
-            }),
+            post(
+                move |axum::Json(args): axum::Json<serde_json::Value>| async move {
+                    handler(args).await
+                },
+            ),
         );
     }
     router
@@ -194,16 +196,12 @@ pub fn server_fn_router(registrations: &'static [ServerFnRegistration]) -> axum:
 ///
 /// This is an alternative to `server_fn_router` for simpler wiring.
 #[cfg(feature = "rest")]
-pub fn server_fn_dispatch_router(
-    registrations: &'static [ServerFnRegistration],
-) -> axum::Router {
+pub fn server_fn_dispatch_router(registrations: &'static [ServerFnRegistration]) -> axum::Router {
     router_with_dispatch(registrations)
 }
 
 #[cfg(feature = "rest")]
-fn router_with_dispatch(
-    registrations: &'static [ServerFnRegistration],
-) -> axum::Router {
+fn router_with_dispatch(registrations: &'static [ServerFnRegistration]) -> axum::Router {
     use axum::extract::Path;
     use axum::response::IntoResponse;
 
@@ -238,8 +236,7 @@ pub async fn call_server_fn<A: Serialize, T: serde::de::DeserializeOwned>(
     use wasm_bindgen_futures::JsFuture;
 
     let window = web_sys::window().ok_or_else(|| ServerFnError::new("no window object"))?;
-    let body =
-        serde_json::to_string(args).map_err(|e| ServerFnError::new(e.to_string()))?;
+    let body = serde_json::to_string(args).map_err(|e| ServerFnError::new(e.to_string()))?;
 
     let mut opts = web_sys::RequestInit::new();
     opts.method("POST");
@@ -254,10 +251,9 @@ pub async fn call_server_fn<A: Serialize, T: serde::de::DeserializeOwned>(
 
     // Propagate CSRF token if present
     if let Some(document) = window.document() {
-        if let Ok(cookie) = js_sys::Reflect::get(
-            &document,
-            &wasm_bindgen::JsValue::from_str("cookie"),
-        ) {
+        if let Ok(cookie) =
+            js_sys::Reflect::get(&document, &wasm_bindgen::JsValue::from_str("cookie"))
+        {
             let cookie_str = cookie.as_string().unwrap_or_default();
             for part in cookie_str.split(';') {
                 let trimmed = part.trim();

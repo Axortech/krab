@@ -318,23 +318,23 @@ mod tests {
 
     #[test]
     fn locale_detection_from_path() {
-        let locales = vec![
-            Locale::new("en", "English"),
-            Locale::new("ne", "नेपाली"),
-        ];
+        let locales = vec![Locale::new("en", "English"), Locale::new("ne", "नेपाली")];
 
-        assert_eq!(detect_locale_from_path("/en/about", &locales), Some("en".to_string()));
-        assert_eq!(detect_locale_from_path("/ne/blog", &locales), Some("ne".to_string()));
+        assert_eq!(
+            detect_locale_from_path("/en/about", &locales),
+            Some("en".to_string())
+        );
+        assert_eq!(
+            detect_locale_from_path("/ne/blog", &locales),
+            Some("ne".to_string())
+        );
         assert_eq!(detect_locale_from_path("/fr/about", &locales), None);
         assert_eq!(detect_locale_from_path("/about", &locales), None);
     }
 
     #[test]
     fn locale_detection_from_header() {
-        let locales = vec![
-            Locale::new("en", "English"),
-            Locale::new("ne", "नेपाली"),
-        ];
+        let locales = vec![Locale::new("en", "English"), Locale::new("ne", "नेपाली")];
 
         assert_eq!(
             detect_locale_from_header("ne,en;q=0.9", &locales),

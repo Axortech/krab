@@ -154,10 +154,7 @@ impl LoadingFallback {
                         self.skeleton_html
                     )
                 } else {
-                    format!(
-                        "<div data-loading=\"true\">{}</div>",
-                        self.skeleton_html
-                    )
+                    format!("<div data-loading=\"true\">{}</div>", self.skeleton_html)
                 }
             }
             LoadingState::Error { message } => {
@@ -382,8 +379,8 @@ mod tests {
 
     #[test]
     fn loading_fallback_custom_skeleton() {
-        let fallback = LoadingFallback::new()
-            .skeleton("<div class='custom-loading'>Please wait...</div>");
+        let fallback =
+            LoadingFallback::new().skeleton("<div class='custom-loading'>Please wait...</div>");
 
         let state = LoadingState::Loading { progress: None };
         let html = fallback.render(&state);
@@ -401,8 +398,7 @@ mod tests {
 
     #[test]
     fn loading_fallback_error_render() {
-        let fallback = LoadingFallback::new()
-            .error_fallback("<p class='retry'>Click to retry</p>");
+        let fallback = LoadingFallback::new().error_fallback("<p class='retry'>Click to retry</p>");
 
         let state = LoadingState::Error {
             message: "timeout".to_string(),

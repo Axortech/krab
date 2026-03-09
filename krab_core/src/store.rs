@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
 #[cfg(feature = "redis-store")]
 use anyhow::Context;
+use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
@@ -39,7 +39,11 @@ impl DistributedStore for MemoryStore {
         {
             let guard = self.inner.read().await;
             if let Some(entry) = guard.get(key) {
-                if entry.expires_at.map(|ts| Instant::now() >= ts).unwrap_or(false) {
+                if entry
+                    .expires_at
+                    .map(|ts| Instant::now() >= ts)
+                    .unwrap_or(false)
+                {
                     drop(guard);
                     let mut guard = self.inner.write().await;
                     guard.remove(key);
@@ -156,10 +160,7 @@ impl DistributedStore for RedisStore {
         use redis::AsyncCommands;
 
         let mut conn = self.conn().await?;
-        let value: u64 = conn
-            .incr(key, delta)
-            .await
-            .context("redis INCR failed")?;
+        let value: u64 = conn.incr(key, delta).await.context("redis INCR failed")?;
         Ok(value)
     }
 

@@ -109,9 +109,12 @@ pub fn server(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Construct the call to the original function with destructured args
-    let call_args: Vec<_> = arg_pats.iter().map(|pat| {
-        quote! { __args.#pat }
-    }).collect();
+    let call_args: Vec<_> = arg_pats
+        .iter()
+        .map(|pat| {
+            quote! { __args.#pat }
+        })
+        .collect();
 
     let call_expr = if call_args.is_empty() {
         quote! { #fn_name().await }
@@ -267,29 +270,35 @@ pub fn island(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_name = &input_fn.sig.ident;
     let vis = &input_fn.vis;
     let inputs = &input_fn.sig.inputs;
-    
+
     // Check for props argument
     let props_type = if let Some(syn::FnArg::Typed(pat_type)) = inputs.first() {
         &pat_type.ty
     } else {
-        return syn::Error::new_spanned(inputs, "Component must have one argument (props)").to_compile_error().into();
+        return syn::Error::new_spanned(inputs, "Component must have one argument (props)")
+            .to_compile_error()
+            .into();
     };
 
     let props_arg_name = if let Some(syn::FnArg::Typed(pat_type)) = inputs.first() {
         if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
             &pat_ident.ident
         } else {
-             return syn::Error::new_spanned(inputs, "Component argument must be an identifier").to_compile_error().into();
+            return syn::Error::new_spanned(inputs, "Component argument must be an identifier")
+                .to_compile_error()
+                .into();
         }
     } else {
-         return syn::Error::new_spanned(inputs, "Component must have one argument").to_compile_error().into();
+        return syn::Error::new_spanned(inputs, "Component must have one argument")
+            .to_compile_error()
+            .into();
     };
 
     // Rename original function to inner
     let inner_fn_name = Ident::new(&format!("{}_impl", fn_name), fn_name.span());
     let original_fn_name = fn_name.clone();
     input_fn.sig.ident = inner_fn_name.clone();
-    
+
     // Server implementation
     let server_impl = quote! {
         #[cfg(not(feature = "web"))]
@@ -297,7 +306,7 @@ pub fn island(_attr: TokenStream, item: TokenStream) -> TokenStream {
             // Serialize props
             let props_json = serde_json::to_string(&#props_arg_name).unwrap_or_default();
             let children = #inner_fn_name(#props_arg_name.clone());
-            
+
             // Wrap in div
             krab_core::Node::Element(krab_core::Element {
                 tag: "div".to_string(),
@@ -318,10 +327,13 @@ pub fn island(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #inner_fn_name(#props_arg_name)
         }
     };
-    
+
     // Hydration handler
-    let hydrate_fn_name = Ident::new(&format!("hydrate_{}", original_fn_name), original_fn_name.span());
-    
+    let hydrate_fn_name = Ident::new(
+        &format!("hydrate_{}", original_fn_name),
+        original_fn_name.span(),
+    );
+
     let hydration_handler = quote! {
         #[cfg(feature = "web")]
         #[allow(non_snake_case)]
@@ -358,7 +370,7 @@ pub fn island(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        
+
         #[cfg(feature = "web")]
         inventory::submit! {
             krab_client::IslandDefinition {
@@ -370,15 +382,15 @@ pub fn island(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let output = quote! {
         #[allow(non_snake_case)]
-        #input_fn 
-        
+        #input_fn
+
         #server_impl
-        
+
         #client_impl
-        
+
         #hydration_handler
     };
-    
+
     TokenStream::from(output)
 }
 
@@ -417,25 +429,25 @@ struct EventListener {
 impl Parse for Node {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![<]) {
-             if input.peek2(Token![>]) {
-                 // Fragment <>...</>
-                 input.parse::<Token![<]>()?;
-                 input.parse::<Token![>]>()?;
-                 let mut children = Vec::new();
-                 while !input.peek(Token![<]) || !input.peek2(Token![/]) {
-                     if input.peek(Token![<]) && input.peek2(Token![/]) {
-                         break;
-                     }
-                     children.push(input.parse()?);
-                 }
-                 input.parse::<Token![<]>()?;
-                 input.parse::<Token![/]>()?;
-                 input.parse::<Token![>]>()?;
-                 Ok(Node::Fragment(children))
-             } else {
-                 let element: Element = input.parse()?;
-                 Ok(Node::Element(element))
-             }
+            if input.peek2(Token![>]) {
+                // Fragment <>...</>
+                input.parse::<Token![<]>()?;
+                input.parse::<Token![>]>()?;
+                let mut children = Vec::new();
+                while !input.peek(Token![<]) || !input.peek2(Token![/]) {
+                    if input.peek(Token![<]) && input.peek2(Token![/]) {
+                        break;
+                    }
+                    children.push(input.parse()?);
+                }
+                input.parse::<Token![<]>()?;
+                input.parse::<Token![/]>()?;
+                input.parse::<Token![>]>()?;
+                Ok(Node::Fragment(children))
+            } else {
+                let element: Element = input.parse()?;
+                Ok(Node::Element(element))
+            }
         } else if input.peek(token::Brace) {
             let content;
             syn::braced!(content in input);
@@ -452,21 +464,21 @@ impl Parse for Element {
     fn parse(input: ParseStream) -> Result<Self> {
         input.parse::<Token![<]>()?;
         let name: Ident = input.parse()?;
-        
+
         let mut attributes = Vec::new();
         let mut events = Vec::new();
         loop {
             if input.peek(Token![>]) || input.peek(Token![/]) {
                 break;
             }
-            
+
             let attr_name: Ident = input.parse()?;
             let attr_name_str = attr_name.to_string();
             if attr_name_str == "on" && input.peek(Token![:]) {
                 input.parse::<Token![:]>()?;
                 let event_name: Ident = input.parse()?;
                 input.parse::<Token![=]>()?;
-                
+
                 let value: Expr = if input.peek(token::Brace) {
                     let content;
                     syn::braced!(content in input);
@@ -474,13 +486,16 @@ impl Parse for Element {
                 } else {
                     return Err(input.error("Expected expression block for event handler"));
                 };
-                
-                events.push(EventListener { name: event_name, value });
+
+                events.push(EventListener {
+                    name: event_name,
+                    value,
+                });
                 continue;
             }
 
             input.parse::<Token![=]>()?;
-            
+
             let value: Expr = if input.peek(LitStr) {
                 let lit: LitStr = input.parse()?;
                 syn::parse_quote!(#lit.to_string())
@@ -489,39 +504,60 @@ impl Parse for Element {
                 syn::braced!(content in input);
                 content.parse()?
             } else {
-                return Err(input.error("Expected string literal or expression block for attribute value"));
+                return Err(
+                    input.error("Expected string literal or expression block for attribute value")
+                );
             };
-            
-            attributes.push(Attribute { name: attr_name, value });
+
+            attributes.push(Attribute {
+                name: attr_name,
+                value,
+            });
         }
-        
+
         if input.peek(Token![/]) {
             input.parse::<Token![/]>()?;
             input.parse::<Token![>]>()?;
-            return Ok(Element { name, attributes, events, children: Vec::new() });
+            return Ok(Element {
+                name,
+                attributes,
+                events,
+                children: Vec::new(),
+            });
         }
-        
+
         input.parse::<Token![>]>()?;
-        
+
         let mut children = Vec::new();
         while !input.peek(Token![<]) || !input.peek2(Token![/]) {
-             if input.peek(Token![<]) && input.peek2(Token![/]) {
-                 break; 
-             }
-             children.push(input.parse()?);
+            if input.peek(Token![<]) && input.peek2(Token![/]) {
+                break;
+            }
+            children.push(input.parse()?);
         }
-        
+
         input.parse::<Token![<]>()?;
         input.parse::<Token![/]>()?;
         let closing_name: Ident = input.parse()?;
-        
+
         if closing_name != name {
-            return Err(syn::Error::new(closing_name.span(), format!("Mismatched closing tag: expected </{}>, found </{}>", name, closing_name)));
+            return Err(syn::Error::new(
+                closing_name.span(),
+                format!(
+                    "Mismatched closing tag: expected </{}>, found </{}>",
+                    name, closing_name
+                ),
+            ));
         }
-        
+
         input.parse::<Token![>]>()?;
-        
-        Ok(Element { name, attributes, events, children })
+
+        Ok(Element {
+            name,
+            attributes,
+            events,
+            children,
+        })
     }
 }
 

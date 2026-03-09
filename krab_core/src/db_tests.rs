@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
     use crate::db::{
-        DbPool, Migration, MigrationFailurePolicy, MigrationGovernanceConfig,
         detect_migration_drift, enforce_migration_governance, record_rollback_rehearsal,
-        rollback_to_version, run_versioned_migrations,
+        rollback_to_version, run_versioned_migrations, DbPool, Migration, MigrationFailurePolicy,
+        MigrationGovernanceConfig,
     };
+    use anyhow::Result;
     use sqlx::postgres::PgPoolOptions;
 
     // Helper to get a clean DB connection for testing
@@ -13,7 +13,8 @@ mod tests {
     // For CI/local dev without DB, these tests will fail if not skipped or mocked.
     // We assume a 'krab_test' database exists for these tests as per CI config.
     async fn get_test_pool() -> Option<DbPool> {
-        let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres@localhost:5432/krab_test".to_string());
+        let url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://postgres@localhost:5432/krab_test".to_string());
         PgPoolOptions::new()
             .max_connections(1)
             .connect(&url)
@@ -101,20 +102,20 @@ mod tests {
         clean_test_db(&pool).await.expect("failed to clean db");
 
         let migrations = test_users_service_migrations();
-        
+
         // 1. Run migrations
         let report = run_versioned_migrations(&pool, &migrations, MigrationFailurePolicy::Halt)
             .await
             .expect("migration run failed");
-            
+
         assert_eq!(report.applied_versions.len(), 7);
         assert_eq!(report.applied_versions, vec![1, 2, 3, 4, 5, 6, 7]);
-        
+
         // 2. Verify drift detection shows clean state
         let drift = detect_migration_drift(&pool, &migrations)
             .await
             .expect("drift detection failed");
-            
+
         assert!(drift.missing_versions.is_empty());
         assert!(drift.unexpected_versions.is_empty());
         assert!(drift.checksum_mismatches.is_empty());
@@ -132,7 +133,7 @@ mod tests {
         clean_test_db(&pool).await.expect("failed to clean db");
 
         let migrations = test_users_service_migrations();
-        
+
         // 1. Apply all
         run_versioned_migrations(&pool, &migrations, MigrationFailurePolicy::Halt)
             .await
@@ -147,7 +148,7 @@ mod tests {
         let drift = detect_migration_drift(&pool, &migrations)
             .await
             .expect("drift detection failed");
-            
+
         // Versions 3, 4, 5 should be missing
         assert!(drift.missing_versions.contains(&3));
         assert!(drift.missing_versions.contains(&4));
@@ -167,7 +168,7 @@ mod tests {
         clean_test_db(&pool).await.expect("failed to clean db");
 
         let mut migrations = test_users_service_migrations();
-        
+
         // 1. Apply initial set
         run_versioned_migrations(&pool, &migrations, MigrationFailurePolicy::Halt)
             .await
@@ -186,7 +187,7 @@ mod tests {
         let drift = detect_migration_drift(&pool, &migrations)
             .await
             .expect("drift detection failed");
-            
+
         assert!(drift.missing_versions.contains(&999));
     }
 

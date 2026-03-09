@@ -161,4 +161,27 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: docker compose down -v
+        run: |
+          echo "Teardown diagnostics — .env present?"
+          if [ -f .env ]; then
+            echo "yes"
+            echo "Teardown diagnostics — .env keys present:"
+            sed -n 's/^\([A-Z0-9_]*\)=.*/\1/p' .env
+          else
+            echo "no"
+          fi
+
+          echo "Teardown diagnostics — shell env key presence:"
+          for key in KRAB_BEARER_TOKEN POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_DB_USERS KRAB_REDIS_URL; do
+            if [ -n "${!key:-}" ]; then
+              echo "$key=present"
+            else
+              echo "$key=missing"
+            fi
+          done
+
+          docker compose config > /tmp/compose-rendered-pre-down.yaml 2> /tmp/compose-config-pre-down.err || true
+          echo "--- docker compose config stderr before down (if any) ---"
+          cat /tmp/compose-config-pre-down.err || true
+
+          docker compose down -v

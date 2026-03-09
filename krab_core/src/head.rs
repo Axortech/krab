@@ -75,7 +75,11 @@ pub struct LinkTag {
 impl LinkTag {
     /// Render this link tag to an HTML string.
     pub fn render(&self) -> String {
-        let mut attrs = format!("rel=\"{}\" href=\"{}\"", html_escape(&self.rel), html_escape(&self.href));
+        let mut attrs = format!(
+            "rel=\"{}\" href=\"{}\"",
+            html_escape(&self.rel),
+            html_escape(&self.href)
+        );
         for (key, value) in &self.extra_attrs {
             attrs.push_str(&format!(" {}=\"{}\"", html_escape(key), html_escape(value)));
         }
@@ -213,7 +217,11 @@ impl HeadContext {
     }
 
     /// Add a `<meta property="..." content="...">` tag (OpenGraph).
-    pub fn meta_property(mut self, property: impl Into<String>, content: impl Into<String>) -> Self {
+    pub fn meta_property(
+        mut self,
+        property: impl Into<String>,
+        content: impl Into<String>,
+    ) -> Self {
         self.meta_tags.push(MetaTag {
             attr_type: MetaAttrType::Property,
             key: property.into(),
@@ -355,7 +363,10 @@ impl HeadContext {
         let mut parts: Vec<String> = Vec::new();
 
         // Charset
-        parts.push(format!("<meta charset=\"{}\"/>", html_escape(&self.charset)));
+        parts.push(format!(
+            "<meta charset=\"{}\"/>",
+            html_escape(&self.charset)
+        ));
 
         // Viewport
         if !self.viewport.is_empty() {
@@ -573,8 +584,7 @@ mod tests {
 
     #[test]
     fn merge_appends_links_and_scripts() {
-        let parent = HeadContext::new()
-            .link_stylesheet("/css/parent.css");
+        let parent = HeadContext::new().link_stylesheet("/css/parent.css");
 
         let child = HeadContext::new()
             .link_stylesheet("/css/child.css")
@@ -589,8 +599,8 @@ mod tests {
 
     #[test]
     fn json_ld_rendering() {
-        let head = HeadContext::new()
-            .json_ld(r#"{"@context":"https://schema.org","@type":"Article"}"#);
+        let head =
+            HeadContext::new().json_ld(r#"{"@context":"https://schema.org","@type":"Article"}"#);
 
         let tags = head.render_tags();
         assert!(tags.contains("application/ld+json"));
@@ -599,8 +609,7 @@ mod tests {
 
     #[test]
     fn html_escaping_in_head() {
-        let head = HeadContext::new()
-            .title("Page with \"quotes\" & <tags>");
+        let head = HeadContext::new().title("Page with \"quotes\" & <tags>");
 
         let tags = head.render_tags();
         assert!(tags.contains("&amp;"));
@@ -609,8 +618,7 @@ mod tests {
 
     #[test]
     fn robots_directive() {
-        let head = HeadContext::new()
-            .robots("noindex, nofollow");
+        let head = HeadContext::new().robots("noindex, nofollow");
 
         let tags = head.render_tags();
         assert!(tags.contains("name=\"robots\" content=\"noindex, nofollow\""));
@@ -618,8 +626,7 @@ mod tests {
 
     #[test]
     fn preload_link() {
-        let head = HeadContext::new()
-            .link_preload("/fonts/inter.woff2", "font");
+        let head = HeadContext::new().link_preload("/fonts/inter.woff2", "font");
 
         let tags = head.render_tags();
         assert!(tags.contains("rel=\"preload\""));

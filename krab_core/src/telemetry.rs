@@ -16,8 +16,7 @@ impl TelemetryConfig {
     /// Build from environment, using `service_name` and the crate version
     /// of the *calling* binary (passed as `version`).
     pub fn from_env(service_name: &str, version: &str) -> Self {
-        let environment =
-            std::env::var("KRAB_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string());
+        let environment = std::env::var("KRAB_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string());
         let hostname = std::env::var("HOSTNAME")
             .or_else(|_| std::env::var("COMPUTERNAME"))
             .unwrap_or_else(|_| "unknown".to_string());

@@ -1,16 +1,18 @@
+use anyhow::{Context as _, Result};
 use async_trait::async_trait;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use anyhow::{Context as _, Result};
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, decode_header, encode};
+use jsonwebtoken::{
+    decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation,
+};
 use krab_core::config::KrabConfig;
+use krab_core::config::{env_non_empty, read_env_or_file};
 use krab_core::http::{
-    HasReadinessDependencies, HasRuntimeState, RuntimeState, apply_common_http_layers, health,
-    metrics, metrics_prometheus, readiness_with_dependencies,
+    apply_common_http_layers, health, metrics, metrics_prometheus, readiness_with_dependencies,
+    HasReadinessDependencies, HasRuntimeState, RuntimeState,
 };
 use krab_core::service::{ApiService, ServiceConfig};
 use krab_core::telemetry::init_tracing;
-use krab_core::config::{env_non_empty, read_env_or_file};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -151,7 +153,6 @@ fn signing_config_from_env() -> SigningConfig {
     }
 }
 
-
 fn key_ring_from_env() -> Result<KeyRing> {
     let keys = if let Some(raw) = read_env_or_file("KRAB_JWT_KEYS_JSON")? {
         serde_json::from_str::<BTreeMap<String, String>>(&raw)
@@ -183,7 +184,8 @@ fn resolve_login_password(username: &str) -> Result<Option<String>> {
         }
     }
 
-    let default_user = std::env::var("KRAB_AUTH_BOOTSTRAP_USER").unwrap_or_else(|_| "admin".to_string());
+    let default_user =
+        std::env::var("KRAB_AUTH_BOOTSTRAP_USER").unwrap_or_else(|_| "admin".to_string());
     if username == default_user {
         return Ok(Some(
             read_env_or_file("KRAB_AUTH_BOOTSTRAP_PASSWORD")?
@@ -197,8 +199,12 @@ fn resolve_login_password(username: &str) -> Result<Option<String>> {
 fn encode_hs256(kid: &str, secret: &str, claims: &AuthTokenClaims) -> Result<String> {
     let mut header = Header::new(Algorithm::HS256);
     header.kid = Some(kid.to_string());
-    encode(&header, claims, &EncodingKey::from_secret(secret.as_bytes()))
-        .context("failed to encode JWT")
+    encode(
+        &header,
+        claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .context("failed to encode JWT")
 }
 
 fn decode_with_key_ring(
@@ -375,7 +381,15 @@ async fn refresh_handler(
     }
 
     let used_key = format!("auth:refresh:used:{}", claims.jti);
-    if state.runtime.store.get(&used_key).await.ok().flatten().is_some() {
+    if state
+        .runtime
+        .store
+        .get(&used_key)
+        .await
+        .ok()
+        .flatten()
+        .is_some()
+    {
         return (
             axum::http::StatusCode::UNAUTHORIZED,
             Json(json!({"error":"refresh_token_already_used"})),
@@ -383,7 +397,15 @@ async fn refresh_handler(
     }
 
     let revoked_key = format!("auth:revoked:{}", claims.jti);
-    if state.runtime.store.get(&revoked_key).await.ok().flatten().is_some() {
+    if state
+        .runtime
+        .store
+        .get(&revoked_key)
+        .await
+        .ok()
+        .flatten()
+        .is_some()
+    {
         return (
             axum::http::StatusCode::UNAUTHORIZED,
             Json(json!({"error":"refresh_token_revoked"})),
@@ -575,7 +597,10 @@ fn bootstrap_auth_service() -> Result<AuthService> {
     if auth_mode.eq_ignore_ascii_case("jwt") || auth_mode.eq_ignore_ascii_case("oidc") {
         let issuer_present = std::env::var_os("KRAB_OIDC_ISSUER").is_some();
         let audience_present = std::env::var_os("KRAB_OIDC_AUDIENCE").is_some();
-        info!(issuer_present, audience_present, "auth_startup_jwt_env_validation");
+        info!(
+            issuer_present,
+            audience_present, "auth_startup_jwt_env_validation"
+        );
 
         std::env::var("KRAB_OIDC_ISSUER")
             .context("KRAB_OIDC_ISSUER must be set when KRAB_AUTH_MODE=jwt")?;
@@ -603,8 +628,10 @@ fn bootstrap_auth_service() -> Result<AuthService> {
                 );
             }
 
-            let has_login_users_json_file = env_non_empty("KRAB_AUTH_LOGIN_USERS_JSON_FILE").is_some();
-            let has_bootstrap_password_file = env_non_empty("KRAB_AUTH_BOOTSTRAP_PASSWORD_FILE").is_some();
+            let has_login_users_json_file =
+                env_non_empty("KRAB_AUTH_LOGIN_USERS_JSON_FILE").is_some();
+            let has_bootstrap_password_file =
+                env_non_empty("KRAB_AUTH_BOOTSTRAP_PASSWORD_FILE").is_some();
             let has_login_users_json_vault =
                 env_non_empty("KRAB_AUTH_LOGIN_USERS_JSON_VAULT_REF").is_some();
             let has_bootstrap_password_vault =
@@ -651,8 +678,8 @@ mod tests {
     use axum::body::to_bytes;
     use axum::body::Body;
     use axum::http::header;
-    use axum::http::StatusCode;
     use axum::http::Request;
+    use axum::http::StatusCode;
     use serde_json::Value;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::sync::oneshot;
@@ -661,7 +688,8 @@ mod tests {
     const TEST_BEARER_TOKEN: &str = "test-token";
 
     fn test_auth_header() -> String {
-        let token = std::env::var("KRAB_BEARER_TOKEN").unwrap_or_else(|_| TEST_BEARER_TOKEN.to_string());
+        let token =
+            std::env::var("KRAB_BEARER_TOKEN").unwrap_or_else(|_| TEST_BEARER_TOKEN.to_string());
         format!("Bearer {token}")
     }
 
@@ -677,7 +705,12 @@ mod tests {
     async fn integration_health_endpoint() {
         let app = test_app();
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -688,7 +721,12 @@ mod tests {
     async fn contract_protected_route_requires_auth() {
         let app = test_app();
         let response = app
-            .oneshot(Request::builder().uri("/api/v1/private").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/private")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -722,7 +760,12 @@ mod tests {
         for _ in 0..130 {
             let response = app
                 .clone()
-                .oneshot(Request::builder().uri("/api/v1/private").body(Body::empty()).unwrap())
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/v1/private")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
                 .await
                 .unwrap();
 
@@ -761,7 +804,12 @@ mod tests {
     async fn contract_ready_returns_dependencies_shape() {
         let app = test_app();
         let response = app
-            .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -798,10 +846,7 @@ mod tests {
             "GET /api/v1/private HTTP/1.1\r\nHost: localhost\r\nAuthorization: {}\r\nConnection: close\r\n\r\n",
             test_auth_header()
         );
-        stream
-            .write_all(request.as_bytes())
-            .await
-            .unwrap();
+        stream.write_all(request.as_bytes()).await.unwrap();
 
         let mut buf = Vec::new();
         stream.read_to_end(&mut buf).await.unwrap();

@@ -1,12 +1,12 @@
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres};
-use sqlx::Row;
 use anyhow::Result;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::Row;
+use sqlx::{Pool, Postgres};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::warn;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 fn bool_env(name: &str, default: bool) -> bool {
     std::env::var(name)
@@ -133,7 +133,8 @@ pub struct MigrationGovernanceConfig {
 impl MigrationGovernanceConfig {
     pub fn from_env() -> Self {
         Self {
-            service_name: std::env::var("KRAB_SERVICE_NAME").unwrap_or_else(|_| "unknown".to_string()),
+            service_name: std::env::var("KRAB_SERVICE_NAME")
+                .unwrap_or_else(|_| "unknown".to_string()),
             environment: std::env::var("KRAB_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string()),
             allow_apply: bool_env("DB_MIGRATION_ALLOW_APPLY", true),
             release_environments: csv_env("DB_MIGRATION_RELEASE_ENVIRONMENTS", "staging,prod"),
@@ -322,10 +323,7 @@ impl DbConfig {
 
         let url = self.url.trim();
         if url.is_empty() {
-            anyhow::bail!(
-                "DATABASE_URL must be set in '{}' environment",
-                env
-            );
+            anyhow::bail!("DATABASE_URL must be set in '{}' environment", env);
         }
 
         if url.contains("postgres:password@") {
@@ -354,10 +352,22 @@ impl DbConfig {
         cfg.max_connections = parse_u32("DB_MAX_CONNECTIONS", cfg.max_connections);
         cfg.min_connections = parse_u32("DB_MIN_CONNECTIONS", cfg.min_connections);
         cfg.connect_retries = parse_u32("DB_CONNECT_RETRIES", cfg.connect_retries);
-        cfg.connect_retry_delay = Duration::from_millis(parse_u32("DB_CONNECT_RETRY_DELAY_MS", cfg.connect_retry_delay.as_millis() as u32) as u64);
-        cfg.acquire_timeout = Duration::from_secs(parse_u32("DB_ACQUIRE_TIMEOUT_SECS", cfg.acquire_timeout.as_secs() as u32) as u64);
-        cfg.max_lifetime = Duration::from_secs(parse_u32("DB_MAX_LIFETIME_SECS", cfg.max_lifetime.as_secs() as u32) as u64);
-        cfg.idle_timeout = Duration::from_secs(parse_u32("DB_IDLE_TIMEOUT_SECS", cfg.idle_timeout.as_secs() as u32) as u64);
+        cfg.connect_retry_delay = Duration::from_millis(parse_u32(
+            "DB_CONNECT_RETRY_DELAY_MS",
+            cfg.connect_retry_delay.as_millis() as u32,
+        ) as u64);
+        cfg.acquire_timeout = Duration::from_secs(parse_u32(
+            "DB_ACQUIRE_TIMEOUT_SECS",
+            cfg.acquire_timeout.as_secs() as u32,
+        ) as u64);
+        cfg.max_lifetime = Duration::from_secs(parse_u32(
+            "DB_MAX_LIFETIME_SECS",
+            cfg.max_lifetime.as_secs() as u32,
+        ) as u64);
+        cfg.idle_timeout = Duration::from_secs(parse_u32(
+            "DB_IDLE_TIMEOUT_SECS",
+            cfg.idle_timeout.as_secs() as u32,
+        ) as u64);
         cfg
     }
 }
@@ -456,7 +466,7 @@ pub async fn enforce_promotion_policy(pool: &DbPool, cfg: &PromotionConfig) -> R
         let target_idx = order.iter().position(|&e| e == target_env).unwrap_or(0);
 
         if target_idx < prev_idx {
-             anyhow::bail!(
+            anyhow::bail!(
                 "migration promotion violation: cannot promote backwards from '{}' to '{}'",
                 previous,
                 target_env
@@ -464,15 +474,14 @@ pub async fn enforce_promotion_policy(pool: &DbPool, cfg: &PromotionConfig) -> R
         }
 
         if previous != target_env && target_idx > prev_idx + 1 {
-             warn!(
+            warn!(
                 "migration promotion skipped a stage: '{}' to '{}'",
-                previous,
-                target_env
+                previous, target_env
             );
         }
-        
+
         if previous != target_env {
-             sqlx::query(
+            sqlx::query(
                 "INSERT INTO krab_migration_environment (environment) VALUES ($1) ON CONFLICT (environment) DO UPDATE SET updated_at = now()",
             )
             .bind(target_env)
@@ -535,7 +544,11 @@ pub async fn detect_migration_drift(
     Ok(report)
 }
 
-pub async fn rollback_to_version(pool: &DbPool, migrations: &[Migration], target_version: i64) -> Result<()> {
+pub async fn rollback_to_version(
+    pool: &DbPool,
+    migrations: &[Migration],
+    target_version: i64,
+) -> Result<()> {
     let mut sorted: Vec<&Migration> = migrations.iter().collect();
     sorted.sort_by_key(|m| m.version);
     sorted.reverse();
@@ -545,12 +558,11 @@ pub async fn rollback_to_version(pool: &DbPool, migrations: &[Migration], target
             continue;
         }
 
-        let exists: Option<i64> = sqlx::query_scalar(
-            "SELECT version FROM krab_migrations WHERE version = $1",
-        )
-        .bind(migration.version)
-        .fetch_optional(pool)
-        .await?;
+        let exists: Option<i64> =
+            sqlx::query_scalar("SELECT version FROM krab_migrations WHERE version = $1")
+                .bind(migration.version)
+                .fetch_optional(pool)
+                .await?;
 
         if exists.is_none() {
             continue;
@@ -584,11 +596,14 @@ pub async fn run_preflight_checks(pool: &DbPool) -> Result<()> {
         .bind(lock_id)
         .fetch_one(pool)
         .await?;
-        
+
     if !lock_acquired {
-        anyhow::bail!("preflight check failed: could not acquire advisory lock {}", lock_id);
+        anyhow::bail!(
+            "preflight check failed: could not acquire advisory lock {}",
+            lock_id
+        );
     }
-    
+
     // Release the lock and verify success.
     let lock_released: bool = sqlx::query_scalar("SELECT pg_advisory_unlock($1)")
         .bind(lock_id)
@@ -596,10 +611,13 @@ pub async fn run_preflight_checks(pool: &DbPool) -> Result<()> {
         .await?;
 
     if !lock_released {
-        anyhow::bail!("preflight check failed: advisory lock {} was not released", lock_id);
+        anyhow::bail!(
+            "preflight check failed: advisory lock {} was not released",
+            lock_id
+        );
     }
 
-    // 2. Dependency checks (e.g. ensure extensions can be created if needed, 
+    // 2. Dependency checks (e.g. ensure extensions can be created if needed,
     // or check for required extensions like 'uuid-ossp' or 'pgcrypto')
     // For now, we just check connection is healthy and we are superuser or owner
     let role: String = sqlx::query_scalar("SELECT current_user")
@@ -697,14 +715,12 @@ pub async fn run_versioned_migrations(
             }
         }
 
-        sqlx::query(
-            "INSERT INTO krab_migrations (version, name, checksum) VALUES ($1, $2, $3)",
-        )
-        .bind(migration.version)
-        .bind(migration.name)
-        .bind(expected_checksum)
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("INSERT INTO krab_migrations (version, name, checksum) VALUES ($1, $2, $3)")
+            .bind(migration.version)
+            .bind(migration.name)
+            .bind(expected_checksum)
+            .execute(&mut *tx)
+            .await?;
 
         tx.commit().await?;
         report.applied_versions.push(migration.version);

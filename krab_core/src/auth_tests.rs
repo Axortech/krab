@@ -5,12 +5,12 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use axum::Router;
     use jsonwebtoken::{encode, EncodingKey, Header};
-    use serial_test::serial;
     use serde_json::{json, Value};
+    use serial_test::serial;
     use std::sync::{Mutex, OnceLock};
-    use tower::ServiceExt; 
-    
-    use crate::http::{RuntimeState, apply_common_http_layers};
+    use tower::ServiceExt;
+
+    use crate::http::{apply_common_http_layers, RuntimeState};
 
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -50,31 +50,29 @@ mod tests {
         struct TestState {
             runtime: RuntimeState,
         }
-        
+
         impl crate::http::HasRuntimeState for TestState {
             fn runtime_state(&self) -> &RuntimeState {
                 &self.runtime
             }
         }
-        
+
         let state = TestState { runtime: state };
 
         let app = Router::new()
             .route("/protected", axum::routing::get(|| async { "ok" }))
             .route("/api/admin/audit", axum::routing::get(|| async { "admin" }))
-            .route("/api/tenants/{tenant_id}/users", axum::routing::get(|| async { "tenant" }));
-            
+            .route(
+                "/api/tenants/{tenant_id}/users",
+                axum::routing::get(|| async { "tenant" }),
+            );
+
         apply_common_http_layers(app, state.clone()).with_state(state)
     }
 
     fn generate_token(claims: Value) -> String {
         let key = b"secret";
-        encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(key),
-        )
-        .unwrap()
+        encode(&Header::default(), &claims, &EncodingKey::from_secret(key)).unwrap()
     }
 
     fn generate_token_with_kid(kid: &str, claims: Value, secret: &[u8]) -> String {
@@ -217,12 +215,12 @@ mod tests {
         std::env::set_var("KRAB_JWT_KEYS_JSON", r#"{"kid1": "secret1"}"#);
 
         let app = test_app();
-        
+
         let claims = json!({
             "sub": "user",
             "exp": 9999999999i64
         });
-        
+
         // Sign with a secret that corresponds to kid2, but kid2 is not in the trusted set
         let token = encode(
             &Header::default(),

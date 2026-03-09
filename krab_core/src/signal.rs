@@ -76,9 +76,11 @@ pub fn create_signal<T>(value: T) -> (ReadSignal<T>, WriteSignal<T>) {
             subscribers: Vec::new(),
         })),
     };
-    
+
     (
-        ReadSignal { inner: inner.clone() },
+        ReadSignal {
+            inner: inner.clone(),
+        },
         WriteSignal { inner },
     )
 }
@@ -100,8 +102,8 @@ impl<T: Clone> ReadSignal<T> {
         // Track dependency
         CURRENT_EFFECT.with(|current| {
             if let Some(effect_weak) = current.borrow().as_ref() {
-                 let mut state = self.inner.state.borrow_mut();
-                 state.subscribers.push(effect_weak.clone());
+                let mut state = self.inner.state.borrow_mut();
+                state.subscribers.push(effect_weak.clone());
             }
         });
         self.inner.state.borrow().value.clone()
@@ -110,12 +112,13 @@ impl<T: Clone> ReadSignal<T> {
 
 impl<T> ReadSignal<T> {
     pub fn with<U, F>(&self, f: F) -> U
-    where F: FnOnce(&T) -> U
+    where
+        F: FnOnce(&T) -> U,
     {
-         CURRENT_EFFECT.with(|current| {
+        CURRENT_EFFECT.with(|current| {
             if let Some(effect_weak) = current.borrow().as_ref() {
-                 let mut state = self.inner.state.borrow_mut();
-                 state.subscribers.push(effect_weak.clone());
+                let mut state = self.inner.state.borrow_mut();
+                state.subscribers.push(effect_weak.clone());
             }
         });
         let state = self.inner.state.borrow();
@@ -144,9 +147,11 @@ impl<T> WriteSignal<T> {
 
         self.notify();
     }
-    
-    pub fn update<F>(&self, f: F) 
-    where F: FnOnce(&mut T) {
+
+    pub fn update<F>(&self, f: F)
+    where
+        F: FnOnce(&mut T),
+    {
         {
             let mut state = self.inner.state.borrow_mut();
             f(&mut state.value);
@@ -161,7 +166,9 @@ impl<T> WriteSignal<T> {
         // that grow exponentially with each notification.
         let to_run: Vec<_> = {
             let mut state = self.inner.state.borrow_mut();
-            state.subscribers.drain(..)
+            state
+                .subscribers
+                .drain(..)
                 .filter_map(|sub| sub.upgrade())
                 .collect()
         };
@@ -218,9 +225,12 @@ mod tests {
         // Runtime confirmation that the types are as expected.
         // The real compile-time check is that Rc<RefCell<...>> is !Send + !Sync,
         // which the compiler enforces automatically.
-        fn is_send<T: Send>() -> bool { true }
+        fn is_send<T: Send>() -> bool {
+            true
+        }
         fn is_not_send<T>() -> bool
-        where T: ?Sized
+        where
+            T: ?Sized,
         {
             std::thread::available_parallelism().is_ok()
         }
@@ -240,22 +250,22 @@ mod tests {
         write.set(1);
         assert_eq!(read.get(), 1);
     }
-    
+
     #[test]
     fn test_effect() {
         let (read, write) = create_signal(0);
         let output = Rc::new(RefCell::new(0));
         let output_clone = output.clone();
-        
+
         create_effect(move || {
             *output_clone.borrow_mut() = read.get();
         });
-        
+
         assert_eq!(*output.borrow(), 0);
         write.set(10);
         assert_eq!(*output.borrow(), 10);
     }
-    
+
     #[test]
     fn test_clone_signal() {
         let (read, _) = create_signal(42);
@@ -272,11 +282,11 @@ mod tests {
         // Signals hold T. ReadSignal::get() requires T: Clone.
         // But we can use ReadSignal::with()
         let (read, _write) = create_signal(NonCloneable(10));
-        
+
         read.with(|v| assert_eq!(v, &NonCloneable(10)));
-        
+
         // This should clone the signal handle, not the value inside (which is not cloneable)
-        let read2 = read.clone(); 
+        let read2 = read.clone();
         read2.with(|v| assert_eq!(v, &NonCloneable(10)));
     }
 }

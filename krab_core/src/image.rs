@@ -41,7 +41,8 @@ pub fn optimized_image(props: ImageProps) -> Node {
         if props.srcset_widths.is_empty() {
             return format!("{}.{}", base_src, ext);
         }
-        props.srcset_widths
+        props
+            .srcset_widths
             .iter()
             .map(|w| format!("{}-{w}w.{ext} {w}w", base_src))
             .collect::<Vec<_>>()

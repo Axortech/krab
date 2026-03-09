@@ -1,26 +1,26 @@
-use axum::extract::{Path, State, Request};
+use axum::body::Body;
 use axum::extract::ws::{Message as AxumWsMessage, WebSocket, WebSocketUpgrade};
+use axum::extract::{Path, Request, State};
+use axum::http::HeaderMap;
 use axum::response::{Html, Response};
 use axum::routing::{get, post};
-use axum::{Json, Router, middleware::Next};
-use axum::body::Body;
-use axum::http::HeaderMap;
+use axum::{middleware::Next, Json, Router};
+use futures_util::{SinkExt, StreamExt};
 use http_body_util::BodyExt;
-use reqwest::Client;
 use krab_client::components::{Counter, CounterProps, Likes, LikesProps, Toggle, ToggleProps};
 use krab_core::config::KrabConfig;
 use krab_core::error_boundary::ErrorBoundary;
-use krab_core::http::{HasRuntimeState, RuntimeState, apply_common_http_layers};
-use krab_core::i18n::{I18n, Locale, TranslationBundle, detect_locale_from_header};
+use krab_core::http::{apply_common_http_layers, HasRuntimeState, RuntimeState};
+use krab_core::i18n::{detect_locale_from_header, I18n, Locale, TranslationBundle};
 use krab_core::isr::{IsrCache, IsrPolicy};
 use krab_core::render_stream::{ChunkedStreamWriter, SuspenseState};
 use krab_core::telemetry::init_tracing;
 use krab_core::ws::{WsMessage, WsRoomManager};
 use krab_core::Render;
 use krab_macros::view;
+use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
-use futures_util::{SinkExt, StreamExt};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -128,11 +128,7 @@ impl HasRuntimeState for AppState {
     }
 }
 
-async fn cache_middleware(
-    State(state): State<AppState>,
-    req: Request,
-    next: Next,
-) -> Response {
+async fn cache_middleware(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req.uri().path().to_string();
     let cache_key = req.uri().to_string(); // Include query params in cache key
     let method = req.method().clone();
@@ -217,8 +213,8 @@ async fn cache_middleware(
 
     // Extract body and cache it
     let (parts, body) = res.into_parts();
-    
-    // We need to buffer the body to store it. 
+
+    // We need to buffer the body to store it.
     // Limit size to avoid memory issues (e.g. 10MB)
     let bytes = match body.collect().await {
         Ok(collected) => collected.to_bytes(),
@@ -228,7 +224,9 @@ async fn cache_middleware(
         }
     };
 
-    let content_type = parts.headers.get(axum::http::header::CONTENT_TYPE)
+    let content_type = parts
+        .headers
+        .get(axum::http::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("text/html")
         .to_string();
@@ -237,7 +235,10 @@ async fn cache_middleware(
 
     if distributed_eligible {
         if let Some(body) = html_for_isr.clone() {
-            let payload = CachedHttpPayload { body, content_type: content_type.clone() };
+            let payload = CachedHttpPayload {
+                body,
+                content_type: content_type.clone(),
+            };
             if let Ok(serialized) = serde_json::to_string(&payload) {
                 let _ = state
                     .runtime_state()
@@ -250,15 +251,17 @@ async fn cache_middleware(
 
     let mut res = Response::from_parts(parts, Body::from(bytes));
     res.headers_mut().insert(
-        axum::http::header::HeaderName::from_static("x-cache"), 
-        axum::http::HeaderValue::from_static("MISS")
+        axum::http::header::HeaderName::from_static("x-cache"),
+        axum::http::HeaderValue::from_static("MISS"),
     );
 
     if isr_eligible {
         if let Some(html) = html_for_isr {
-            state
-                .isr_cache
-                .put(&cache_key, html, IsrPolicy::revalidate(isr_revalidate_duration()));
+            state.isr_cache.put(
+                &cache_key,
+                html,
+                IsrPolicy::revalidate(isr_revalidate_duration()),
+            );
             res.headers_mut().insert(
                 axum::http::header::HeaderName::from_static("x-isr-state"),
                 axum::http::HeaderValue::from_static("fresh"),
@@ -303,9 +306,11 @@ async fn trigger_isr_revalidation(state: AppState, cache_key: String, path: Stri
     }
 
     if let Some(html) = render_isr_path(&path) {
-        state
-            .isr_cache
-            .put(&cache_key, html, IsrPolicy::revalidate(isr_revalidate_duration()));
+        state.isr_cache.put(
+            &cache_key,
+            html,
+            IsrPolicy::revalidate(isr_revalidate_duration()),
+        );
     }
 
     let mut in_progress = state.isr_revalidating.lock().await;
@@ -691,7 +696,7 @@ fn render_home_page_localized(locale: &str) -> String {
                     <div class="interactive-demo">
                         <h2>"Interactive Islands"</h2>
                         <p class="mb-4 text-secondary">"These components are hydrated on the client. Try them out!"</p>
-                        
+
                         <div class="demo-row">
                             <span>"Counter:"</span>
                             {counter}
@@ -799,7 +804,11 @@ async fn handle_ws_chat_socket(socket: WebSocket) {
                     }
                 }
                 WsMessage::Binary(bin) => {
-                    if sender.send(AxumWsMessage::Binary(bin.into())).await.is_err() {
+                    if sender
+                        .send(AxumWsMessage::Binary(bin.into()))
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                 }
@@ -926,7 +935,10 @@ async fn robots_txt_handler() -> ([(&'static str, &'static str); 1], String) {
     let base_url = normalize_public_base_url();
     (
         [("content-type", "text/plain; charset=utf-8")],
-        format!("User-agent: *\nAllow: /\nSitemap: {}/sitemap.xml\n", base_url),
+        format!(
+            "User-agent: *\nAllow: /\nSitemap: {}/sitemap.xml\n",
+            base_url
+        ),
     )
 }
 
@@ -1055,8 +1067,7 @@ fn rpc_now_json() -> String {
         .unwrap_or(0);
     format!(
         "{{\"epoch_millis\":{},\"server_function_version\":\"{}\"}}",
-        now,
-        SERVER_FUNCTION_VERSION
+        now, SERVER_FUNCTION_VERSION
     )
 }
 
@@ -1120,13 +1131,17 @@ async fn submit_contact_handler(
     )
 }
 
-async fn hmr_handler(State(state): State<AppState>) -> axum::response::Sse<impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>> {
-    use tokio_stream::wrappers::WatchStream;
+async fn hmr_handler(
+    State(state): State<AppState>,
+) -> axum::response::Sse<
+    impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
+> {
     use futures_util::StreamExt;
-    
+    use tokio_stream::wrappers::WatchStream;
+
     let stream = WatchStream::new(state.hmr_rx)
         .map(|sig| Ok(axum::response::sse::Event::default().data(sig.to_string())));
-    
+
     axum::response::Sse::new(stream)
 }
 
@@ -1141,14 +1156,24 @@ fn build_router(state: AppState) -> Router {
         .route("/{locale}", get(localized_home_handler))
         .route("/about", get(|| async { Html(render_about_page()) }))
         .route("/greet", get(|| async { Html(render_greet_page()) }))
-        .route("/blog/{slug}", get(|Path(params): Path<HashMap<String, String>>| async move {
-            let slug = params.get("slug").map(|s| s.as_str()).unwrap_or("unknown").to_string();
-            Html(render_blog_page(slug.as_str()))
-        }))
+        .route(
+            "/blog/{slug}",
+            get(|Path(params): Path<HashMap<String, String>>| async move {
+                let slug = params
+                    .get("slug")
+                    .map(|s| s.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                Html(render_blog_page(slug.as_str()))
+            }),
+        )
         .route("/robots.txt", get(robots_txt_handler))
         .route("/sitemap.xml", get(sitemap_xml_handler))
         .route("/data/dashboard", get(dashboard_handler))
-        .route("/asset-manifest.json", get(|| async { asset_manifest_json() }))
+        .route(
+            "/asset-manifest.json",
+            get(|| async { asset_manifest_json() }),
+        )
         .route("/rpc/now", get(|| async { rpc_now_json() }))
         .route("/rpc/version", get(|| async { rpc_version_json() }))
         .route("/api/ws/chat", get(ws_chat_handler))
@@ -1162,8 +1187,11 @@ fn build_router(state: AppState) -> Router {
 
     // Apply cache middleware to the router before wrapping with common layers.
     // With Axum's layer composition, this yields: Request -> Common -> Cache -> Handler.
-    
-    let app = app.layer(axum::middleware::from_fn_with_state(state.clone(), cache_middleware));
+
+    let app = app.layer(axum::middleware::from_fn_with_state(
+        state.clone(),
+        cache_middleware,
+    ));
 
     apply_common_http_layers(app, state.clone()).with_state(state)
 }
@@ -1192,7 +1220,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     });
 
-    let state = AppState { 
+    let state = AppState {
         runtime: RuntimeState::new(),
         http_client: Client::builder().timeout(Duration::from_secs(2)).build()?,
         auth_base_url: normalize_service_base_url("KRAB_AUTH_BASE_URL", "http://127.0.0.1:3001"),
@@ -1220,10 +1248,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 mod tests {
     use super::{
         api_status_handler, asset_manifest_json, dashboard_handler, health_handler,
-        normalize_public_base_url, normalize_service_base_url, ready_handler,
-        redact_email_for_log, redact_name_for_log, render_about_page, render_blog_page,
-        render_home_page, robots_txt_handler, rpc_now_json, rpc_version_json,
-        sitemap_xml_handler, AppState, CachedHttpPayload, RuntimeState, SERVER_FUNCTION_VERSION,
+        normalize_public_base_url, normalize_service_base_url, ready_handler, redact_email_for_log,
+        redact_name_for_log, render_about_page, render_blog_page, render_home_page,
+        robots_txt_handler, rpc_now_json, rpc_version_json, sitemap_xml_handler, AppState,
+        CachedHttpPayload, RuntimeState, SERVER_FUNCTION_VERSION,
     };
     use axum::extract::State;
     use axum::Json;
@@ -1284,7 +1312,9 @@ mod tests {
     fn blog_page_uses_route_specific_canonical_and_article_type() {
         std::env::set_var("KRAB_PUBLIC_BASE_URL", "https://krab.example.com");
         let html = render_blog_page("integration-check");
-        assert!(html.contains("<link rel=\"canonical\" href=\"https://krab.example.com/blog/integration-check\""));
+        assert!(html.contains(
+            "<link rel=\"canonical\" href=\"https://krab.example.com/blog/integration-check\""
+        ));
         assert!(html.contains("<meta property=\"og:type\" content=\"article\""));
         assert!(html.contains("Blog Post: integration-check | Krab Framework"));
     }
@@ -1332,7 +1362,10 @@ mod tests {
             hmr_rx: tokio::sync::watch::channel(0).1,
         };
         let Json(json) = api_status_handler(State(state)).await;
-        assert_eq!(json.get("service").and_then(|v| v.as_str()), Some("frontend"));
+        assert_eq!(
+            json.get("service").and_then(|v| v.as_str()),
+            Some("frontend")
+        );
         assert!(matches!(
             json.get("status").and_then(|v| v.as_str()),
             Some("ok") | Some("degraded")
@@ -1342,13 +1375,16 @@ mod tests {
     #[tokio::test]
     async fn operational_health_payload_is_stable_json() {
         let Json(json) = health_handler().await;
-        assert_eq!(json.get("service").and_then(|v| v.as_str()), Some("frontend"));
+        assert_eq!(
+            json.get("service").and_then(|v| v.as_str()),
+            Some("frontend")
+        );
         assert_eq!(json.get("status").and_then(|v| v.as_str()), Some("ok"));
     }
 
     #[tokio::test]
     async fn operational_ready_payload_matches_contract_shape() {
-        let state = AppState { 
+        let state = AppState {
             runtime: RuntimeState::new(),
             http_client: Client::builder()
                 .timeout(std::time::Duration::from_secs(1))
@@ -1392,7 +1428,10 @@ mod tests {
             .get("active_sessions")
             .and_then(|v| v.as_u64())
             .is_some());
-        assert_eq!(json.get("feature").and_then(|v| v.as_str()), Some("islands"));
+        assert_eq!(
+            json.get("feature").and_then(|v| v.as_str()),
+            Some("islands")
+        );
     }
 
     #[test]
@@ -1549,11 +1588,11 @@ mod tests {
 
     #[tokio::test]
     async fn cache_tier_contract_api_paths_are_cached() {
-        use tower::ServiceExt;
         use axum::body::Body;
         use axum::http::Request;
+        use tower::ServiceExt;
 
-        let state = AppState { 
+        let state = AppState {
             runtime: RuntimeState::new(),
             http_client: Client::builder()
                 .timeout(std::time::Duration::from_secs(1))
@@ -1565,26 +1604,38 @@ mod tests {
             isr_revalidating: Arc::new(tokio::sync::Mutex::new(HashSet::new())),
             hmr_rx: tokio::sync::watch::channel(0).1,
         };
-        
+
         let app = super::build_router(state);
-        
+
         // First request - MISS
-        let req1 = Request::builder().uri("/data/dashboard").body(Body::empty()).unwrap();
+        let req1 = Request::builder()
+            .uri("/data/dashboard")
+            .body(Body::empty())
+            .unwrap();
         let response1 = app.clone().oneshot(req1).await.unwrap();
-        
+
         assert_eq!(response1.status(), axum::http::StatusCode::OK);
         assert_eq!(
-            response1.headers().get("x-cache").and_then(|v| v.to_str().ok()),
+            response1
+                .headers()
+                .get("x-cache")
+                .and_then(|v| v.to_str().ok()),
             Some("MISS")
         );
-        
+
         // Second request - HIT
-        let req2 = Request::builder().uri("/data/dashboard").body(Body::empty()).unwrap();
+        let req2 = Request::builder()
+            .uri("/data/dashboard")
+            .body(Body::empty())
+            .unwrap();
         let response2 = app.oneshot(req2).await.unwrap();
-        
+
         assert_eq!(response2.status(), axum::http::StatusCode::OK);
         assert_eq!(
-            response2.headers().get("x-cache").and_then(|v| v.to_str().ok()),
+            response2
+                .headers()
+                .get("x-cache")
+                .and_then(|v| v.to_str().ok()),
             Some("HIT")
         );
     }
@@ -1612,10 +1663,7 @@ mod tests {
 
         let app = super::build_router(state);
 
-        let first = Request::builder()
-            .uri("/")
-            .body(Body::empty())
-            .unwrap();
+        let first = Request::builder().uri("/").body(Body::empty()).unwrap();
         let response1 = app.clone().oneshot(first).await.unwrap();
         assert_eq!(response1.status(), axum::http::StatusCode::OK);
         assert_eq!(
@@ -1628,10 +1676,7 @@ mod tests {
 
         tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
 
-        let second = Request::builder()
-            .uri("/")
-            .body(Body::empty())
-            .unwrap();
+        let second = Request::builder().uri("/").body(Body::empty()).unwrap();
         let response2 = app.clone().oneshot(second).await.unwrap();
         assert_eq!(response2.status(), axum::http::StatusCode::OK);
         assert_eq!(
@@ -1675,18 +1720,12 @@ mod tests {
 
         let app = super::build_router(state);
 
-        let first = Request::builder()
-            .uri("/")
-            .body(Body::empty())
-            .unwrap();
+        let first = Request::builder().uri("/").body(Body::empty()).unwrap();
         let _ = app.clone().oneshot(first).await.unwrap();
 
         tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
 
-        let stale_req = Request::builder()
-            .uri("/")
-            .body(Body::empty())
-            .unwrap();
+        let stale_req = Request::builder().uri("/").body(Body::empty()).unwrap();
         let stale_response = app.clone().oneshot(stale_req).await.unwrap();
         assert_eq!(
             stale_response
@@ -1713,7 +1752,10 @@ mod tests {
             }
         }
 
-        assert!(became_fresh, "expected background ISR regeneration to refresh stale cache");
+        assert!(
+            became_fresh,
+            "expected background ISR regeneration to refresh stale cache"
+        );
         std::env::remove_var("KRAB_ISR_REVALIDATE_SECS");
     }
 
@@ -1753,7 +1795,10 @@ mod tests {
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
         assert_eq!(
-            response.headers().get("x-cache").and_then(|v| v.to_str().ok()),
+            response
+                .headers()
+                .get("x-cache")
+                .and_then(|v| v.to_str().ok()),
             Some("MISS")
         );
         assert_eq!(

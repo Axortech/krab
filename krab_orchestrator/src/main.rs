@@ -170,7 +170,10 @@ async fn main() -> Result<()> {
     match settings {
         Ok(settings) => match settings.try_deserialize::<KrabConfig>() {
             Ok(config) => {
-                info!("Loaded configuration for services: {:?}", config.services.keys());
+                info!(
+                    "Loaded configuration for services: {:?}",
+                    config.services.keys()
+                );
                 run_supervisor(config).await?;
             }
             Err(e) => {
@@ -320,7 +323,10 @@ async fn supervise_exited_children(
                     continue;
                 }
 
-                tokio::time::sleep(Duration::from_millis(service.effective_restart_backoff_ms())).await;
+                tokio::time::sleep(Duration::from_millis(
+                    service.effective_restart_backoff_ms(),
+                ))
+                .await;
                 match spawn_service(&name, service).await {
                     Ok(new_child) => {
                         children.insert(name.clone(), new_child);
@@ -370,7 +376,9 @@ async fn wait_for_service_health(name: &str, service: &ServiceDefinition) -> Res
     };
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_millis(service.effective_healthcheck_timeout_ms()))
+        .timeout(Duration::from_millis(
+            service.effective_healthcheck_timeout_ms(),
+        ))
         .build()?;
 
     let mut circuit = CircuitBreaker::new(3, Duration::from_secs(2), 1);
@@ -378,7 +386,10 @@ async fn wait_for_service_health(name: &str, service: &ServiceDefinition) -> Res
     for _ in 0..service.effective_healthcheck_retries() {
         if !circuit.allow_request() {
             warn!(service = %name, url = %url, circuit_state = ?circuit.state(), "service_health_probe_blocked_by_circuit");
-            tokio::time::sleep(Duration::from_millis(service.effective_healthcheck_interval_ms())).await;
+            tokio::time::sleep(Duration::from_millis(
+                service.effective_healthcheck_interval_ms(),
+            ))
+            .await;
             continue;
         }
 
@@ -397,7 +408,10 @@ async fn wait_for_service_health(name: &str, service: &ServiceDefinition) -> Res
                 warn!(service = %name, url = %url, error = %err, "service_health_probe_failed");
             }
         }
-        tokio::time::sleep(Duration::from_millis(service.effective_healthcheck_interval_ms())).await;
+        tokio::time::sleep(Duration::from_millis(
+            service.effective_healthcheck_interval_ms(),
+        ))
+        .await;
     }
 
     anyhow::bail!("service '{}' failed health check at {}", name, url)
@@ -423,7 +437,11 @@ fn resolve_startup_order(services: &HashMap<String, ServiceDefinition>) -> Resul
             .get(node)
             .ok_or_else(|| anyhow::anyhow!("service '{}' not found", node))?;
 
-        for dep in service.depends_on.iter().chain(service.startup_dependencies.iter()) {
+        for dep in service
+            .depends_on
+            .iter()
+            .chain(service.startup_dependencies.iter())
+        {
             if !services.contains_key(dep) {
                 anyhow::bail!("service '{}' depends on unknown service '{}'", node, dep);
             }

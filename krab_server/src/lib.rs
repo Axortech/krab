@@ -1,5 +1,5 @@
-use std::convert::Infallible;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -11,8 +11,8 @@ use hyper::{Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use hyper_util::service::TowerToHyperService;
 use tokio::net::TcpListener;
-use tower::ServiceBuilder;
 use tower::util::service_fn;
+use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
 use std::future::Future;
@@ -110,15 +110,16 @@ impl Router {
                     return;
                 }
             } else {
-                current = current.children.entry(segment.to_string()).or_insert(TrieNode::new());
+                current = current
+                    .children
+                    .entry(segment.to_string())
+                    .or_insert(TrieNode::new());
             }
         }
 
         current.handler = Some(Box::new(move |params| {
             let fut = handler(params);
-            Box::pin(async move {
-                fut.await.into_response()
-            })
+            Box::pin(async move { fut.await.into_response() })
         }));
     }
 
@@ -181,7 +182,10 @@ impl Server {
         self
     }
 
-    pub async fn run(self, addr: SocketAddr) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn run(
+        self,
+        addr: SocketAddr,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let listener = TcpListener::bind(addr).await?;
         println!("Listening on http://{}", addr);
 
@@ -205,11 +209,11 @@ impl Server {
                         error_page.clone(),
                     )
                 });
-                
+
                 let service = ServiceBuilder::new()
                     .layer(TraceLayer::new_for_http())
                     .service(service);
-                
+
                 let hyper_service = TowerToHyperService::new(service);
 
                 if let Err(err) = http1::Builder::new()
@@ -232,7 +236,7 @@ async fn handle_request(
     error_page: Arc<String>,
 ) -> Result<Response<Full<Bytes>>, Infallible> {
     let path = req.uri().path();
-    
+
     if let Some(dir) = &static_dir {
         if path.starts_with("/pkg/") {
             let Some(relative_path) = path.strip_prefix("/pkg/") else {
@@ -282,9 +286,7 @@ async fn handle_request(
 
     match router.handle(path) {
         Some(fut) => Ok(fut.await),
-        None => {
-            Ok(build_not_found_response(not_found_page.as_ref()))
-        }
+        None => Ok(build_not_found_response(not_found_page.as_ref())),
     }
 }
 
@@ -355,10 +357,12 @@ fn resolve_static_pkg_path(static_root: &Path, requested_relative_path: &str) ->
         return None;
     }
 
-    if requested
-        .components()
-        .any(|c| matches!(c, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
-    {
+    if requested.components().any(|c| {
+        matches!(
+            c,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
         return None;
     }
 
@@ -473,13 +477,19 @@ mod tests {
 
     #[test]
     fn static_mime_for_uses_lookup_and_safe_default() {
-        assert_eq!(static_mime_for("/pkg/app.js"), "text/javascript".to_string());
+        assert_eq!(
+            static_mime_for("/pkg/app.js"),
+            "text/javascript".to_string()
+        );
         assert_eq!(static_mime_for("/pkg/site.css"), "text/css".to_string());
         assert_eq!(
             static_mime_for("/pkg/index.html"),
             "text/html; charset=utf-8".to_string()
         );
-        assert_eq!(static_mime_for("/pkg/module.wasm"), "application/wasm".to_string());
+        assert_eq!(
+            static_mime_for("/pkg/module.wasm"),
+            "application/wasm".to_string()
+        );
         assert_eq!(
             static_mime_for("/pkg/blob.unknownext"),
             "application/octet-stream".to_string()

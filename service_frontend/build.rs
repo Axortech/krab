@@ -132,28 +132,32 @@ fn main() {
                 }
                 if content.contains("pub async fn post(") {
                     if method_routes.is_empty() {
-                        method_routes.push_str(&format!("axum::routing::post({}::post)", module_name));
+                        method_routes
+                            .push_str(&format!("axum::routing::post({}::post)", module_name));
                     } else {
                         method_routes.push_str(&format!(".post({}::post)", module_name));
                     }
                 }
                 if content.contains("pub async fn put(") {
                     if method_routes.is_empty() {
-                        method_routes.push_str(&format!("axum::routing::put({}::put)", module_name));
+                        method_routes
+                            .push_str(&format!("axum::routing::put({}::put)", module_name));
                     } else {
                         method_routes.push_str(&format!(".put({}::put)", module_name));
                     }
                 }
                 if content.contains("pub async fn delete(") {
                     if method_routes.is_empty() {
-                        method_routes.push_str(&format!("axum::routing::delete({}::delete)", module_name));
+                        method_routes
+                            .push_str(&format!("axum::routing::delete({}::delete)", module_name));
                     } else {
                         method_routes.push_str(&format!(".delete({}::delete)", module_name));
                     }
                 }
                 if content.contains("pub async fn patch(") {
                     if method_routes.is_empty() {
-                        method_routes.push_str(&format!("axum::routing::patch({}::patch)", module_name));
+                        method_routes
+                            .push_str(&format!("axum::routing::patch({}::patch)", module_name));
                     } else {
                         method_routes.push_str(&format!(".patch({}::patch)", module_name));
                     }

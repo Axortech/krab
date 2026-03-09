@@ -1,5 +1,5 @@
-use std::fs;
 use anyhow::{Context, Result};
+use std::fs;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Environment {
@@ -10,7 +10,10 @@ pub enum Environment {
 }
 
 pub fn env_non_empty(name: &str) -> Option<String> {
-    std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+    std::env::var(name)
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
 }
 
 pub fn read_env_or_file(name: &str) -> Result<Option<String>> {
@@ -134,12 +137,7 @@ impl KrabConfig {
     /// unrecognised environment, required secrets must be present or this returns
     /// an error — callers should propagate the error and abort the process.
     pub fn validate(&self) -> anyhow::Result<()> {
-        let has_non_empty = |name: &str| {
-            !std::env::var(name)
-                .unwrap_or_default()
-                .trim()
-                .is_empty()
-        };
+        let has_non_empty = |name: &str| !std::env::var(name).unwrap_or_default().trim().is_empty();
 
         match self.environment {
             Environment::Dev => return Ok(()),
@@ -188,7 +186,9 @@ impl KrabConfig {
             let has_provider_bundle =
                 has_provider_json || has_provider_json_file || has_provider_json_vault_ref;
             let has_fallback_provider_tuple =
-                (has_keys || has_secret || has_keys_file || has_secret_file) && has_issuer && has_audience;
+                (has_keys || has_secret || has_keys_file || has_secret_file)
+                    && has_issuer
+                    && has_audience;
 
             if !has_provider_bundle && !has_fallback_provider_tuple {
                 anyhow::bail!(
@@ -317,4 +317,3 @@ mod tests {
         assert!(err.contains("inline KRAB_JWT_SECRET/KRAB_JWT_KEYS_JSON is forbidden"));
     }
 }
-

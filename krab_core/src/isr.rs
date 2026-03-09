@@ -229,7 +229,10 @@ mod tests {
 
     #[test]
     fn revalidate_policy_staleness() {
-        let entry = IsrEntry::new("<h1>Home</h1>", IsrPolicy::revalidate(Duration::from_millis(1)));
+        let entry = IsrEntry::new(
+            "<h1>Home</h1>",
+            IsrPolicy::revalidate(Duration::from_millis(1)),
+        );
         std::thread::sleep(Duration::from_millis(5));
         assert!(entry.is_stale());
     }
@@ -266,7 +269,11 @@ mod tests {
     #[test]
     fn serve_stale_while_revalidate() {
         let cache = IsrCache::new();
-        cache.put("/page", "<h1>Page</h1>", IsrPolicy::revalidate(Duration::from_millis(1)));
+        cache.put(
+            "/page",
+            "<h1>Page</h1>",
+            IsrPolicy::revalidate(Duration::from_millis(1)),
+        );
 
         // Immediately fresh
         let (html, needs_reval) = cache.serve("/page").unwrap();

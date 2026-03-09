@@ -89,9 +89,7 @@ impl Layout {
 
 impl std::fmt::Debug for Layout {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Layout")
-            .field("name", &self.name)
-            .finish()
+        f.debug_struct("Layout").field("name", &self.name).finish()
     }
 }
 
@@ -170,11 +168,7 @@ impl LayoutTree {
         chain
     }
 
-    fn resolve_recursive<'a>(
-        children: &'a [LayoutRoute],
-        path: &str,
-        chain: &mut Vec<&'a Layout>,
-    ) {
+    fn resolve_recursive<'a>(children: &'a [LayoutRoute], path: &str, chain: &mut Vec<&'a Layout>) {
         for child in children {
             if path.starts_with(&child.path_prefix) {
                 chain.push(&child.layout);
@@ -252,8 +246,7 @@ mod tests {
 
     #[test]
     fn layout_tree_nested_blog() {
-        let tree = LayoutTree::new(make_root_layout())
-            .nest("/blog", make_blog_layout());
+        let tree = LayoutTree::new(make_root_layout()).nest("/blog", make_blog_layout());
         let head = HeadContext::new().title("Blog Post");
 
         let result = tree.render("/blog/my-post", "<p>Post content</p>".to_string(), &head);
@@ -291,13 +284,14 @@ mod tests {
 
     #[test]
     fn deeply_nested_layouts() {
-        let tree = LayoutTree::new(make_root_layout())
-            .nest_route(
-                LayoutRoute::new("/admin", make_admin_layout())
-                    .child(LayoutRoute::new("/admin/settings", Layout::new("settings", |outlet, _| {
-                        format!("<div class=\"settings\">{}</div>", outlet.content)
-                    }))),
-            );
+        let tree = LayoutTree::new(make_root_layout()).nest_route(
+            LayoutRoute::new("/admin", make_admin_layout()).child(LayoutRoute::new(
+                "/admin/settings",
+                Layout::new("settings", |outlet, _| {
+                    format!("<div class=\"settings\">{}</div>", outlet.content)
+                }),
+            )),
+        );
 
         let chain = tree.resolve("/admin/settings/profile");
         assert_eq!(chain.len(), 3);

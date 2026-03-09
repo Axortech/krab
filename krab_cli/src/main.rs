@@ -1,12 +1,12 @@
-use clap::{Parser, Subcommand, ValueEnum};
 use anyhow::{Context, Result};
-use std::process::Command;
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::time::{Duration, SystemTime};
-use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
+use std::fs;
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::{Duration, SystemTime};
 
 #[derive(Parser)]
 #[command(name = "krab")]
@@ -97,7 +97,7 @@ enum Commands {
     Gen {
         #[command(subcommand)]
         resource: GenResource,
-    }
+    },
 }
 
 #[derive(Subcommand)]
@@ -224,37 +224,31 @@ fn main() -> Result<()> {
         Commands::EnvCheck { strict } => {
             validate_environment(*strict)?;
         }
-        Commands::Contract { action } => {
-            match action {
-                ContractAction::Check { diagnostics } => run_contract_checks(*diagnostics)?,
+        Commands::Contract { action } => match action {
+            ContractAction::Check { diagnostics } => run_contract_checks(*diagnostics)?,
+        },
+        Commands::Db { action } => match action {
+            DbAction::Lifecycle { diagnostics } => run_db_lifecycle_check(*diagnostics)?,
+            DbAction::Rollback { diagnostics } => run_db_rollback_check(*diagnostics)?,
+            DbAction::Drift { diagnostics } => run_db_drift_check(*diagnostics)?,
+            DbAction::Rehearsal { out, diagnostics } => {
+                run_db_rollback_rehearsal(out, *diagnostics)?
             }
-        }
-        Commands::Db { action } => {
-            match action {
-                DbAction::Lifecycle { diagnostics } => run_db_lifecycle_check(*diagnostics)?,
-                DbAction::Rollback { diagnostics } => run_db_rollback_check(*diagnostics)?,
-                DbAction::Drift { diagnostics } => run_db_drift_check(*diagnostics)?,
-                DbAction::Rehearsal { out, diagnostics } => {
-                    run_db_rollback_rehearsal(out, *diagnostics)?
-                }
+        },
+        Commands::Gen { resource } => match resource {
+            GenResource::Service { name, r#type } => {
+                generate_service(name, r#type)?;
             }
-        }
-        Commands::Gen { resource } => {
-            match resource {
-                GenResource::Service { name, r#type } => {
-                    generate_service(name, r#type)?;
-                }
-                GenResource::Component { name } => {
-                    generate_component(name)?;
-                }
-                GenResource::Route { name } => {
-                    generate_route(name)?;
-                }
-                GenResource::ServerFunction { name } => {
-                    generate_server_function(name)?;
-                }
+            GenResource::Component { name } => {
+                generate_component(name)?;
             }
-        }
+            GenResource::Route { name } => {
+                generate_route(name)?;
+            }
+            GenResource::ServerFunction { name } => {
+                generate_server_function(name)?;
+            }
+        },
         Commands::New { name } => {
             generate_project(name)?;
         }
@@ -264,18 +258,22 @@ fn main() -> Result<()> {
 }
 
 fn generate_service(name: &str, service_type: &ServiceType) -> Result<()> {
-    println!("🦀 Generating service '{}' of type {:?}...", name, service_type);
-    
+    println!(
+        "🦀 Generating service '{}' of type {:?}...",
+        name, service_type
+    );
+
     let path = PathBuf::from(name);
     if path.exists() {
         anyhow::bail!("Directory '{}' already exists", name);
     }
-    
+
     // Create directory
     fs::create_dir(&path).context("Failed to create service directory")?;
-    
+
     // Create Cargo.toml
-    let cargo_toml = format!(r#"[package]
+    let cargo_toml = format!(
+        r#"[package]
 name = "{}"
 version = "0.1.0"
 edition = "2021"
@@ -287,17 +285,20 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 serde = {{ version = "1.0", features = ["derive"] }}
-"#, name, match service_type {
-    ServiceType::Rest => "rest",
-    ServiceType::Graphql => "graphql",
-    ServiceType::Grpc => "grpc",
-});
-    
+"#,
+        name,
+        match service_type {
+            ServiceType::Rest => "rest",
+            ServiceType::Graphql => "graphql",
+            ServiceType::Grpc => "grpc",
+        }
+    );
+
     fs::write(path.join("Cargo.toml"), cargo_toml)?;
-    
+
     // Create src directory
     fs::create_dir(path.join("src"))?;
-    
+
     // Create src/main.rs stub
     let main_rs = r#"use anyhow::Result;
 use krab_core::service::{ApiService, ServiceConfig};
@@ -321,10 +322,13 @@ async fn main() -> Result<()> {
 }
 "#;
     fs::write(path.join("src/main.rs"), main_rs)?;
-    
+
     println!("✅ Service '{}' created successfully!", name);
-    println!("👉 Add '{}' to your workspace Cargo.toml members list.", name);
-    
+    println!(
+        "👉 Add '{}' to your workspace Cargo.toml members list.",
+        name
+    );
+
     Ok(())
 }
 
@@ -334,8 +338,9 @@ fn generate_component(name: &str) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
-    let content = format!(r#"use krab_core::prelude::*;
+
+    let content = format!(
+        r#"use krab_core::prelude::*;
 
 #[component]
 pub fn {}() -> impl IntoView {{
@@ -345,7 +350,10 @@ pub fn {}() -> impl IntoView {{
         </div>
     }}
 }}
-"#, name, name.to_lowercase());
+"#,
+        name,
+        name.to_lowercase()
+    );
     fs::write(&path, content)?;
     println!("✅ Component '{}' created at {:?}", name, path);
     Ok(())
@@ -357,8 +365,9 @@ fn generate_route(name: &str) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
-    let content = format!(r#"use krab_core::prelude::*;
+
+    let content = format!(
+        r#"use krab_core::prelude::*;
 
 #[route(path = "/{}")]
 pub fn {}() -> impl IntoView {{
@@ -368,7 +377,11 @@ pub fn {}() -> impl IntoView {{
         </div>
     }}
 }}
-"#, name.to_lowercase(), name, name);
+"#,
+        name.to_lowercase(),
+        name,
+        name
+    );
     fs::write(&path, content)?;
     println!("✅ Route '{}' created at {:?}", name, path);
     Ok(())
@@ -380,15 +393,19 @@ fn generate_server_function(name: &str) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
-    let content = format!(r#"use krab_core::prelude::*;
+
+    let content = format!(
+        r#"use krab_core::prelude::*;
 use serde::{{Serialize, Deserialize}};
 
 #[server(endpoint = "/api/{}")]
 pub async fn {}() -> Result<String, ServerFnError> {{
     Ok("Hello from server".to_string())
 }}
-"#, name.to_lowercase(), name);
+"#,
+        name.to_lowercase(),
+        name
+    );
     fs::write(&path, content)?;
     println!("✅ Server function '{}' created at {:?}", name, path);
     Ok(())
@@ -402,8 +419,9 @@ fn generate_project(name: &str) -> Result<()> {
     }
     fs::create_dir(&path)?;
     fs::create_dir(path.join("src"))?;
-    
-    let cargo_toml = format!(r#"[package]
+
+    let cargo_toml = format!(
+        r#"[package]
 name = "{}"
 version = "0.1.0"
 edition = "2021"
@@ -411,10 +429,12 @@ edition = "2021"
 [dependencies]
 krab_core = "0.1.0"
 tokio = {{ version = "1.0", features = ["full"] }}
-"#, name);
+"#,
+        name
+    );
 
     fs::write(path.join("Cargo.toml"), cargo_toml)?;
-    
+
     let main_rs = r#"use krab_core::prelude::*;
 
 fn main() {
@@ -436,7 +456,11 @@ fn build_project(release: bool, target: &BuildTarget, diagnostics: bool) -> Resu
         if release {
             server_cmd.arg("--release");
         }
-        run_command_logged("cargo build --bin service_frontend", &mut server_cmd, diagnostics)?;
+        run_command_logged(
+            "cargo build --bin service_frontend",
+            &mut server_cmd,
+            diagnostics,
+        )?;
     }
 
     if matches!(target, BuildTarget::All | BuildTarget::Client) {
@@ -534,7 +558,10 @@ fn watch_project(release: bool, poll_ms: u64, settle_ms: u64) -> Result<()> {
     loop {
         std::thread::sleep(Duration::from_millis(poll_ms));
 
-        if let Some(status) = child.try_wait().context("Failed checking frontend process state")? {
+        if let Some(status) = child
+            .try_wait()
+            .context("Failed checking frontend process state")?
+        {
             eprintln!("⚠️ service_frontend exited ({status}). Restarting...");
             child = spawn_frontend(release)?;
         }
@@ -607,7 +634,11 @@ fn watch_project(release: bool, poll_ms: u64, settle_ms: u64) -> Result<()> {
             let _ = child.kill();
             let _ = child.wait();
 
-            let target = if client_changed { BuildTarget::All } else { BuildTarget::Frontend };
+            let target = if client_changed {
+                BuildTarget::All
+            } else {
+                BuildTarget::Frontend
+            };
             if let Err(err) = build_project(release, &target, false) {
                 eprintln!("⚠️ Rebuild failed: {err}");
                 baseline = next;
@@ -622,7 +653,16 @@ fn watch_project(release: bool, poll_ms: u64, settle_ms: u64) -> Result<()> {
         // Write HMR signal file
         let dist_dir = PathBuf::from("dist");
         if dist_dir.exists() {
-            let _ = fs::write(dist_dir.join(".hmr_signal"), format!("{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis()));
+            let _ = fs::write(
+                dist_dir.join(".hmr_signal"),
+                format!(
+                    "{}",
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis()
+                ),
+            );
         }
 
         baseline = next;
@@ -685,8 +725,7 @@ fn validate_environment(strict: bool) -> Result<()> {
         let env_name = std::env::var("KRAB_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string());
         if !env_name.eq_ignore_ascii_case("local") && !env_name.eq_ignore_ascii_case("dev") {
             warnings.push(
-                "KRAB_AUTH_MODE=static is forbidden outside local/dev; use jwt or oidc"
-                    .to_string(),
+                "KRAB_AUTH_MODE=static is forbidden outside local/dev; use jwt or oidc".to_string(),
             );
         }
     } else {
@@ -848,12 +887,19 @@ fn spawn_frontend(release: bool) -> Result<std::process::Child> {
     if release {
         cmd.arg("--release");
     }
-    cmd.spawn().context("Failed to start service_frontend process")
+    cmd.spawn()
+        .context("Failed to start service_frontend process")
 }
 
 fn collect_file_fingerprints() -> Result<std::collections::HashMap<PathBuf, u64>> {
     let mut files = Vec::new();
-    for root in ["krab_core/src", "service_frontend/src", "krab_client/src", "krab_macros/src", "service_frontend/public"] {
+    for root in [
+        "krab_core/src",
+        "service_frontend/src",
+        "krab_client/src",
+        "krab_macros/src",
+        "service_frontend/public",
+    ] {
         collect_files_recursive(PathBuf::from(root).as_path(), &mut files)?;
     }
 
@@ -904,11 +950,26 @@ fn generate_docs(out: &PathBuf) -> Result<()> {
     }
 
     let mut command_matrix = BTreeMap::new();
-    command_matrix.insert("krab build [--release]", "Build frontend + WASM + bindgen + fingerprinted assets");
-    command_matrix.insert("krab dev [--release]", "Build once and run service_frontend");
-    command_matrix.insert("krab dev --watch [--release] [--poll-ms <n>] [--settle-ms <n>]", "HMR-style loop: debounce file changes, rebuild, restart frontend");
-    command_matrix.insert("krab watch [--release] [--poll-ms <n>] [--settle-ms <n>]", "Alias dedicated to watch workflow");
-    command_matrix.insert("krab docs [--out <path>]", "Regenerate this developer workflow document");
+    command_matrix.insert(
+        "krab build [--release]",
+        "Build frontend + WASM + bindgen + fingerprinted assets",
+    );
+    command_matrix.insert(
+        "krab dev [--release]",
+        "Build once and run service_frontend",
+    );
+    command_matrix.insert(
+        "krab dev --watch [--release] [--poll-ms <n>] [--settle-ms <n>]",
+        "HMR-style loop: debounce file changes, rebuild, restart frontend",
+    );
+    command_matrix.insert(
+        "krab watch [--release] [--poll-ms <n>] [--settle-ms <n>]",
+        "Alias dedicated to watch workflow",
+    );
+    command_matrix.insert(
+        "krab docs [--out <path>]",
+        "Regenerate this developer workflow document",
+    );
 
     let mut rows = String::new();
     for (cmd, desc) in command_matrix {
@@ -920,8 +981,7 @@ fn generate_docs(out: &PathBuf) -> Result<()> {
         rows
     );
 
-    fs::write(out, content)
-        .with_context(|| format!("Failed to write docs file {out:?}"))?;
+    fs::write(out, content).with_context(|| format!("Failed to write docs file {out:?}"))?;
     println!("✅ Wrote workflow docs to {}", out.display());
     Ok(())
 }

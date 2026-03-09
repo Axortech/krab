@@ -93,8 +93,10 @@ fn attribute_value_is_escaped() {
 
 #[test]
 fn void_elements_do_not_double_close() {
-    for tag in &["area", "base", "br", "col", "embed", "hr", "img", "input",
-                  "link", "meta", "param", "source", "track", "wbr"] {
+    for tag in &[
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+        "source", "track", "wbr",
+    ] {
         // We can't call view! with a variable tag name, so test via Node directly
         let el = krab_core::Node::Element(krab_core::Element {
             tag: tag.to_string(),

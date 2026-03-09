@@ -1,3 +1,4 @@
+use anyhow::{Context as _, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Object, Schema, SimpleObject};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use async_trait::async_trait;
@@ -7,25 +8,24 @@ use axum::middleware::{self, Next};
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
-use krab_core::http::AuthContext;
-use anyhow::{Context as _, Result};
+use krab_core::config::KrabConfig;
 use krab_core::db::{
-    DbConfig, DbPool, Migration, MigrationGovernanceConfig, PromotionConfig,
     detect_migration_drift, enforce_migration_governance, enforce_promotion_policy,
-    migration_failure_policy_from_env, run_versioned_migrations,
+    migration_failure_policy_from_env, run_versioned_migrations, DbConfig, DbPool, Migration,
+    MigrationGovernanceConfig, PromotionConfig,
+};
+use krab_core::http::AuthContext;
+use krab_core::http::{
+    apply_common_http_layers, health, metrics, metrics_prometheus, readiness_with_dependencies,
+    DependencyStatus, HasReadinessDependencies, HasRuntimeState, RuntimeState,
 };
 use krab_core::repository::{UserRecord, UserRepository};
-use krab_core::http::{
-    DependencyStatus, HasReadinessDependencies, HasRuntimeState, RuntimeState,
-    apply_common_http_layers, health, metrics, metrics_prometheus, readiness_with_dependencies,
-};
-use krab_core::config::KrabConfig;
 use krab_core::service::{ApiService, ServiceConfig};
 use krab_core::telemetry::init_tracing;
 use serde::Serialize;
-use sqlx::SqlitePool;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::Row;
+use sqlx::SqlitePool;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::info;
@@ -358,7 +358,8 @@ async fn graphql_handler(
 }
 
 fn has_admin_entitlement(auth: &AuthContext) -> bool {
-    let admin_scope = std::env::var("KRAB_AUTH_ADMIN_SCOPE").unwrap_or_else(|_| "admin".to_string());
+    let admin_scope =
+        std::env::var("KRAB_AUTH_ADMIN_SCOPE").unwrap_or_else(|_| "admin".to_string());
     let admin_role = std::env::var("KRAB_AUTH_ADMIN_ROLE").unwrap_or_else(|_| "admin".to_string());
     auth.scopes.iter().any(|s| s == &admin_scope) || auth.roles.iter().any(|r| r == &admin_role)
 }
@@ -406,7 +407,10 @@ fn build_app(state: AppState) -> Router {
     let api = Router::new()
         .route("/graphql", post(graphql_handler))
         .nest("/admin", admin_api)
-        .route("/users/me", get(|| async { Json(StatusPayload { status: "ok" }) }));
+        .route(
+            "/users/me",
+            get(|| async { Json(StatusPayload { status: "ok" }) }),
+        );
 
     let app = Router::new()
         .route("/", get(root))
@@ -437,7 +441,7 @@ impl ApiService for UsersService {
         let addr = format!("{}:{}", self.config.host, self.config.port)
             .parse::<SocketAddr>()
             .context("invalid users service bind address")?;
-        
+
         info!(
             service = %self.config.name,
             host = %self.config.host,
@@ -602,14 +606,14 @@ mod tests {
     use super::*;
     use axum::body::to_bytes;
     use axum::body::Body;
-    use axum::http::StatusCode;
     use axum::http::Request;
+    use axum::http::StatusCode;
     use serde_json::Value;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::sync::oneshot;
     use sqlx::postgres::PgPoolOptions;
     use sqlx::sqlite::SqlitePoolOptions;
     use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::sync::oneshot;
     use tower::util::ServiceExt;
 
     const GRAPHQL_SCHEMA_BASELINE: &str = include_str!("../contracts/graphql_schema_v1.graphql");
@@ -666,9 +670,15 @@ mod tests {
 
     #[test]
     fn contract_db_driver_parse_accepts_supported_values() {
-        assert!(matches!(DbDriver::parse("postgres"), Ok(DbDriver::Postgres)));
+        assert!(matches!(
+            DbDriver::parse("postgres"),
+            Ok(DbDriver::Postgres)
+        ));
         assert!(matches!(DbDriver::parse("sqlite"), Ok(DbDriver::Sqlite)));
-        assert!(matches!(DbDriver::parse("  PoStGrEs "), Ok(DbDriver::Postgres)));
+        assert!(matches!(
+            DbDriver::parse("  PoStGrEs "),
+            Ok(DbDriver::Postgres)
+        ));
     }
 
     #[test]
@@ -714,7 +724,12 @@ mod tests {
     async fn integration_health_endpoint() {
         let app = build_app(test_state().await);
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -858,7 +873,12 @@ mod tests {
     async fn contract_ready_reports_dependency_set() {
         let app = build_app(test_state().await);
         let response = app
-            .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -869,21 +889,31 @@ mod tests {
             .and_then(|d| d.as_array())
             .cloned()
             .unwrap_or_default();
-        assert!(deps.iter().any(|d| d.get("name") == Some(&Value::String("postgres".to_string()))));
+        assert!(deps
+            .iter()
+            .any(|d| d.get("name") == Some(&Value::String("postgres".to_string()))));
     }
 
     #[tokio::test]
     async fn fault_injection_db_outage_drives_readiness_not_ready() {
         let app = build_app(degraded_state().await);
         let response = app
-            .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let payload: Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(payload.get("status").and_then(|v| v.as_str()), Some("not_ready"));
+        assert_eq!(
+            payload.get("status").and_then(|v| v.as_str()),
+            Some("not_ready")
+        );
     }
 
     #[tokio::test]

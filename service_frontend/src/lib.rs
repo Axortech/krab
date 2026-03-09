@@ -1,9 +1,9 @@
 // Re-export axum Router so build-generated routes.rs can reference it.
-pub use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
+pub use axum::Router;
 
 const MW_ORDER_HEADER: &str = "x-krab-route-mw-order";
 const MW_SHORT_CIRCUIT_HEADER: &str = "x-krab-route-mw-short-circuit";
@@ -98,8 +98,8 @@ include!(concat!(env!("OUT_DIR"), "/ssg.rs"));
 #[cfg(test)]
 mod tests {
     use crate::{
-        discovered_static_routes, enumerate_dynamic_route_params, register_routes, ssg_manifest_json,
-        Router,
+        discovered_static_routes, enumerate_dynamic_route_params, register_routes,
+        ssg_manifest_json, Router,
     };
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -117,7 +117,8 @@ mod tests {
         }
         .render();
 
-        let expected = "<div id=\"snapshot-root\"><h1>Krab Framework</h1><p>SSR snapshot baseline</p></div>";
+        let expected =
+            "<div id=\"snapshot-root\"><h1>Krab Framework</h1><p>SSR snapshot baseline</p></div>";
         assert_eq!(rendered, expected);
     }
 

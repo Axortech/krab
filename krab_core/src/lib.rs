@@ -1,17 +1,17 @@
 use std::rc::Rc;
 
-pub mod signal;
-pub mod resilience;
 pub mod config;
+pub mod error_boundary;
 pub mod head;
+pub mod i18n;
+pub mod image;
+pub mod isr;
 pub mod layout;
 pub mod loading;
 pub mod render_stream;
-pub mod error_boundary;
+pub mod resilience;
+pub mod signal;
 pub mod style_scope;
-pub mod image;
-pub mod isr;
-pub mod i18n;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ws;
@@ -142,18 +142,23 @@ impl std::fmt::Debug for EventListener {
 
 impl Render for Element {
     fn render(&self) -> String {
-        let attrs = self.attributes.iter().map(|a| format!(" {}=\"{}\"", a.name, escape_html_attr(&a.value))).collect::<String>();
+        let attrs = self
+            .attributes
+            .iter()
+            .map(|a| format!(" {}=\"{}\"", a.name, escape_html_attr(&a.value)))
+            .collect::<String>();
         let children = self.children.iter().map(|c| c.render()).collect::<String>();
-        
+
         // Note: events are not rendered to HTML string
-        
+
         if self.children.is_empty() {
-             match self.tag.as_str() {
-                 "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link" | "meta" | "param" | "source" | "track" | "wbr" => {
-                     format!("<{}{}/>", self.tag, attrs)
-                 }
-                 _ => format!("<{}{}></{}>", self.tag, attrs, self.tag),
-             }
+            match self.tag.as_str() {
+                "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link"
+                | "meta" | "param" | "source" | "track" | "wbr" => {
+                    format!("<{}{}/>", self.tag, attrs)
+                }
+                _ => format!("<{}{}></{}>", self.tag, attrs, self.tag),
+            }
         } else {
             format!("<{}{}>{}</{}>", self.tag, attrs, children, self.tag)
         }
@@ -210,8 +215,9 @@ impl IntoNode for &i32 {
 // impl<F> IntoNode for F where F: Fn() -> Node + 'static { ... }
 // This might conflict or requires boxing.
 // Since we use Rc<dyn Fn() -> Node>, we can impl it.
-impl<F> IntoNode for F 
-where F: Fn() -> Node + 'static 
+impl<F> IntoNode for F
+where
+    F: Fn() -> Node + 'static,
 {
     fn into_node(self) -> Node {
         Node::Dynamic(Rc::new(self))
@@ -219,6 +225,6 @@ where F: Fn() -> Node + 'static
 }
 
 // Also support closures returning things that can be nodes?
-// e.g. Fn() -> String. 
+// e.g. Fn() -> String.
 // Rust doesn't support specialization well, so F: Fn() -> Node is safer.
 // If the user returns String from closure, they might need to wrap it.

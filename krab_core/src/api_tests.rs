@@ -9,7 +9,7 @@ mod tests {
     fn test_error_envelope_structure() {
         let error = ApiError::new("TEST_ERROR", "Something went wrong")
             .with_details(json!({ "field": "value" }));
-        
+
         assert_eq!(error.code, "TEST_ERROR");
         assert_eq!(error.message, "Something went wrong");
         assert!(error.details.is_some());

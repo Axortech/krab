@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
+use krab_core::signal::*;
+use krab_core::{IntoNode, Node};
 use krab_macros::{island, view};
 use serde::{Deserialize, Serialize};
-use krab_core::{Node, IntoNode};
-use krab_core::signal::*;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CounterProps {
