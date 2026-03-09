@@ -78,10 +78,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Prepare .env
+        run: |
+          cat > .env << 'EOF'
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=krab
+          POSTGRES_DB_USERS=krab_users
+          KRAB_BEARER_TOKEN=ci-test-token
+          KRAB_REDIS_URL=redis://redis:6379
+          EOF
+
       - name: Diagnostics — docker compose env and config preflight
         run: |
           echo ".env present?"
           if [ -f .env ]; then echo "yes"; else echo "no"; fi
+
+          echo "Diagnostics — .env.example present?"
+          if [ -f .env.example ]; then echo "yes"; else echo "no"; fi
+
+          echo "Diagnostics — required keys in .env.example (if present):"
+          if [ -f .env.example ]; then
+            sed -n 's/^\(POSTGRES_USER\|POSTGRES_PASSWORD\|POSTGRES_DB\|POSTGRES_DB_USERS\|KRAB_BEARER_TOKEN\|KRAB_REDIS_URL\)=.*/\1/p' .env.example
+          else
+            echo ".env.example missing"
+          fi
+
+          if [ -f .env ]; then
+            echo "Diagnostics — required keys in .env (if present):"
+            sed -n 's/^\([A-Z0-9_]*\)=.*/\1/p' .env | grep -E '^(POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB|POSTGRES_DB_USERS|KRAB_BEARER_TOKEN|KRAB_REDIS_URL)$' || true
+          fi
 
           for key in KRAB_BEARER_TOKEN POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_DB_USERS KRAB_REDIS_URL; do
             if [ -n "${!key:-}" ]; then
@@ -150,7 +176,10 @@ jobs:
 
       - name: Collect service logs on failure
         if: failure()
-        run: docker compose logs --no-color > /tmp/compose-logs.txt
+        run: |
+          docker compose logs --no-color > /tmp/compose-logs.txt 2> /tmp/compose-logs.err || true
+          echo "--- docker compose logs stderr (if any) ---"
+          cat /tmp/compose-logs.err || true
 
       - name: Upload compose logs
         if: failure()
@@ -184,4 +213,4 @@ jobs:
           echo "--- docker compose config stderr before down (if any) ---"
           cat /tmp/compose-config-pre-down.err || true
 
-          docker compose down -v
+          docker compose down -v || true
