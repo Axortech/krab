@@ -22,6 +22,9 @@
 2. Correlate with deployment timeline and rollback immediately if regression aligns with deploy.
 3. Verify dependency readiness (`/ready`) and database/auth dependency health.
 4. Inspect logs for panic signatures, timeout cascades, or pool exhaustion.
+5. Verify Prometheus inputs are healthy for canonical series:
+   - `krab_http_responses_total{class="5xx"}`
+   - `krab_http_requests_by_protocol_total`
 
 ### Immediate Actions
 - If deploy related: rollback first, investigate second.
@@ -91,6 +94,9 @@
 1. Compare p95/p99 across routes to identify hotspot handlers.
 2. Check DB query latency and connection pool pressure.
 3. Validate cache hit ratios and upstream dependency latency.
+4. Validate histogram contract and scrape freshness for:
+   - `krab_http_request_duration_seconds_bucket`
+   - `krab_http_request_duration_seconds_count`
 
 ### Actions
 - Reduce expensive query paths (indexes, batching, cache).
@@ -110,3 +116,14 @@
 ### Additional Actions for Burn-Rate Alerts
 4. If `AuthBudgetBurnFast` persists, enable temporary protective controls (stricter rate limits, WAF rule).
 5. If `AuthBudgetBurnSlow` persists, create follow-up for client misconfiguration or abusive traffic source remediation.
+
+### Hardening Controls to Verify During Incident
+
+- **Rate-limit store failure policy** (`KRAB_RATE_LIMIT_FAIL_OPEN`)
+  - `true`: requests continue on store outage (availability priority)
+  - `false`: requests are rejected with `429` on store outage (abuse-resistance priority)
+- **Proxy header trust** (`KRAB_TRUST_PROXY_HEADERS`)
+  - `false` (default): ignores `x-forwarded-for` and `x-real-ip`
+  - `true`: forwarded IP headers are trusted for per-IP controls
+- **JWT algorithm policy** (`KRAB_JWT_ALLOWED_ALGS`)
+  - Ensure configured allowlist matches provider signing algorithms.

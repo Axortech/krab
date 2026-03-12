@@ -3,10 +3,10 @@ name: Cross-Service and E2E Depth
 on:
   pull_request:
     paths:
-      - 'service_auth/**'
-      - 'service_users/**'
-      - 'service_frontend/**'
-      - 'krab_core/src/http.rs'
+      - 'services/service_auth/**'
+      - 'services/service_users/**'
+      - 'services/service_frontend/**'
+      - 'crates/framework/krab_core/src/http.rs'
       - 'docker-compose.yml'
       - 'Dockerfile.service'
       - '.github/workflows/e2e-depth.yaml'

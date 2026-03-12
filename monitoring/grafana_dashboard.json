@@ -41,6 +41,61 @@
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 18 },
+      "id": 7,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "list" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum by (job, protocol) (rate(krab_http_requests_by_protocol_total[1m]))",
+          "legendFormat": "{{job}} {{protocol}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate by Protocol",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "percent", "max": 100, "min": 0 },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 18 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "100 * sum by (job, protocol) (rate(krab_http_responses_by_protocol_total{class=\"5xx\"}[1m])) / (sum by (job, protocol) (rate(krab_http_requests_by_protocol_total[1m])) + 0.001)",
+          "legendFormat": "{{job}} {{protocol}} 5xx%",
+          "refId": "A"
+        }
+      ],
+      "title": "Error Rate by Protocol",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 18 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum by (job) (rate(krab_http_requests_by_protocol_total{job=~\"users-rest|users-graphql|users-rpc\"}[1m]))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Users Split-Service Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
         "defaults": { "color": { "mode": "palette-classic" }, "unit": "percent", "max": 100, "min": 0 },
         "overrides": []
       },
@@ -48,7 +103,7 @@
       "id": 2,
       "targets": [
         {
-          "expr": "100 * sum by (job) (rate(krab_response_5xx_total[1m])) / (sum by (job) (rate(krab_requests_total[1m])) + 0.001)",
+          "expr": "100 * sum by (job) (rate(krab_http_responses_total{class=\"5xx\"}[1m])) / (sum by (job) (rate(krab_requests_total[1m])) + 0.001)",
           "legendFormat": "{{job}} 5xx%",
           "refId": "A"
         }
@@ -66,17 +121,17 @@
       "id": 3,
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (job, le) (rate(krab_request_duration_ms_bucket[5m])))",
+          "expr": "1000 * histogram_quantile(0.50, sum by (job, le) (rate(krab_http_request_duration_seconds_bucket[5m])))",
           "legendFormat": "{{job}} p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (job, le) (rate(krab_request_duration_ms_bucket[5m])))",
+          "expr": "1000 * histogram_quantile(0.95, sum by (job, le) (rate(krab_http_request_duration_seconds_bucket[5m])))",
           "legendFormat": "{{job}} p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (job, le) (rate(krab_request_duration_ms_bucket[5m])))",
+          "expr": "1000 * histogram_quantile(0.99, sum by (job, le) (rate(krab_http_request_duration_seconds_bucket[5m])))",
           "legendFormat": "{{job}} p99",
           "refId": "C"
         }

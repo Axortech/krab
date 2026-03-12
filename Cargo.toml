@@ -1,14 +1,14 @@
 [workspace]
 members = [
-    "krab_core",
-    "service_frontend",
-    "krab_orchestrator",
-    "service_auth",
-    "service_users",
-    "krab_macros",
-    "krab_client",
-    "krab_cli",
-    "krab_server",
+    "crates/framework/krab_core",
+    "services/service_frontend",
+    "crates/tooling/krab_orchestrator",
+    "services/service_auth",
+    "services/service_users",
+    "crates/framework/krab_macros",
+    "crates/framework/krab_client",
+    "crates/tooling/krab_cli",
+    "crates/framework/krab_server",
 ]
 resolver = "2"
 

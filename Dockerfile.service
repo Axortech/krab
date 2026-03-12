@@ -4,21 +4,22 @@
 ARG BIN=service_auth
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM rust:1.75-slim-bookworm AS builder
+# Use stable Rust so Cargo understands modern lockfile formats (v4+).
+FROM rust:stable-slim-bookworm AS builder
 ARG BIN
 WORKDIR /build
 
 # Cache dependency compilation separately from source
 COPY Cargo.toml Cargo.lock ./
-COPY krab_core/Cargo.toml krab_core/Cargo.toml
-COPY krab_macros/Cargo.toml krab_macros/Cargo.toml
-COPY krab_client/Cargo.toml krab_client/Cargo.toml
-COPY krab_server/Cargo.toml krab_server/Cargo.toml
-COPY service_auth/Cargo.toml service_auth/Cargo.toml
-COPY service_users/Cargo.toml service_users/Cargo.toml
-COPY service_frontend/Cargo.toml service_frontend/Cargo.toml
-COPY krab_orchestrator/Cargo.toml krab_orchestrator/Cargo.toml
-COPY krab_cli/Cargo.toml krab_cli/Cargo.toml
+COPY crates/framework/krab_core/Cargo.toml crates/framework/krab_core/Cargo.toml
+COPY crates/framework/krab_macros/Cargo.toml crates/framework/krab_macros/Cargo.toml
+COPY crates/framework/krab_client/Cargo.toml crates/framework/krab_client/Cargo.toml
+COPY crates/framework/krab_server/Cargo.toml crates/framework/krab_server/Cargo.toml
+COPY services/service_auth/Cargo.toml services/service_auth/Cargo.toml
+COPY services/service_users/Cargo.toml services/service_users/Cargo.toml
+COPY services/service_frontend/Cargo.toml services/service_frontend/Cargo.toml
+COPY crates/tooling/krab_orchestrator/Cargo.toml crates/tooling/krab_orchestrator/Cargo.toml
+COPY crates/tooling/krab_cli/Cargo.toml crates/tooling/krab_cli/Cargo.toml
 
 # Stub source files so Cargo can resolve the dependency graph
 RUN find . -name 'Cargo.toml' -not -path './Cargo.toml' | while read f; do \

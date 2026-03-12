@@ -115,6 +115,12 @@ Returns active signing key descriptors.
 
 Returns auth subsystem status metadata.
 
+### `GET /api/v1/auth/capabilities`
+
+Returns auth protocol capability metadata.
+
+Auth capability policy is intentionally REST-only for lifecycle operations.
+
 ### `GET /api/v1/private`
 
 Protected test/private endpoint.
@@ -160,7 +166,26 @@ Protected admin endpoint (admin scope/role required).
 
 Protected users endpoint.
 
-## 5. Frontend service (`service_frontend`)
+### `GET /api/v1/capabilities`
+
+Returns users service capability metadata for protocol-aware clients.
+
+## 5. Protocol capability discovery and selection
+
+Protocol-aware services expose capability endpoints to publish default protocol,
+supported protocol set, and protocol routes.
+
+Client hint header:
+
+- `x-krab-protocol: rest|graphql|rpc`
+
+Runtime header switching is disabled by default and must be explicitly enabled.
+
+Auth lifecycle restrictions:
+
+- `auth.login`, `auth.refresh`, `auth.revoke`, `auth.jwks`, `auth.status` are REST-only.
+
+## 6. Frontend service (`service_frontend`)
 
 Base URL: `http://localhost:3000`
 
@@ -200,7 +225,7 @@ Accepted response:
 }
 ```
 
-## 6. Versioning policy
+## 7. Versioning policy
 
 - REST routes are versioned by path prefix: `/api/v1/...`
 - GraphQL versioning is schema-driven

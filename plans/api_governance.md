@@ -57,3 +57,38 @@ Common codes:
 - `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`
 - `BAD_REQUEST`, `VALIDATION_ERROR`, `CONFLICT`
 - `TOO_MANY_REQUESTS`, `INTERNAL_SERVER_ERROR`
+
+## 5. Protocol Parity and Exposure Mode Policy
+
+### 5.1 Parity Matrix Required
+- Any operation exposed on multiple protocols MUST have a parity matrix in `plans/` documenting:
+  - REST endpoint ↔ GraphQL query/mutation ↔ RPC method mapping
+  - known behavioral gaps (if any)
+  - source-of-record adapter
+
+### 5.2 Behavioral Equivalence Tests
+- For multi-exposed operations, authorization outcomes and response semantics MUST match by protocol.
+- Parity suites are release blockers in CI.
+
+### 5.3 Protocol Change Classification
+
+| Change | Classification |
+|---|---|
+| Add new protocol adapter for existing operation | Minor |
+| Remove protocol support for existing operation | **Major** + required sunset notice |
+| Switch exposure mode from multi to single | **Breaking** unless no external consumers exist |
+
+### 5.4 Deprecation by Protocol Surface
+- Deprecation notices MUST explicitly name protocol surface.
+- Example: REST `user.email` deprecated, migrate to GraphQL `User.emailAddress`.
+
+### 5.5 Observability Labels
+- Metrics, tracing, and logs MUST include protocol-aware attributes.
+- Standard labels/fields:
+  - `protocol="rest|graphql|rpc"`
+  - `operation="<service.operation>"`
+  - `selection_source="policy|tenant|client|default"`
+
+### 5.6 Exposure Mode Change Policy
+- Moving from `multi` to `single` mode is treated as breaking.
+- Requires migration notice and sunset timeline (minimum 6 months, aligned with section 3).

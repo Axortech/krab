@@ -12,7 +12,7 @@ groups:
 
       - alert: HighErrorRate
         expr: |
-          rate(krab_response_5xx_total[5m]) /
+          rate(krab_http_responses_total{class="5xx"}[5m]) /
           (rate(krab_requests_total[5m]) + 0.001) > 0.05
         for: 2m
         labels:
@@ -23,7 +23,7 @@ groups:
 
       - alert: AvailabilityBurnRateFast
         expr: |
-          rate(krab_response_5xx_total[5m]) /
+          rate(krab_http_responses_total{class="5xx"}[5m]) /
           (rate(krab_requests_total[5m]) + 0.001) > 0.014
         for: 5m
         labels:
@@ -37,7 +37,7 @@ groups:
 
       - alert: AvailabilityBurnRateSlow
         expr: |
-          rate(krab_response_5xx_total[30m]) /
+          rate(krab_http_responses_total{class="5xx"}[30m]) /
           (rate(krab_requests_total[30m]) + 0.001) > 0.006
         for: 15m
         labels:
@@ -50,7 +50,7 @@ groups:
           runbook: "plans/oncall_playbook.md#p2-availability-burn-rate-slow"
 
       - alert: ServiceNotReady
-        expr: krab_dependency_up{critical="true"} == 0
+        expr: krab_dependency_up == 0
         for: 30s
         labels:
           severity: critical
@@ -63,8 +63,8 @@ groups:
       - alert: HighP99Latency
         expr: |
           histogram_quantile(0.99,
-            rate(krab_request_duration_ms_bucket[5m])
-          ) > 2000
+            sum by (job, le) (rate(krab_http_request_duration_seconds_bucket[5m]))
+          ) > 2
         for: 5m
         labels:
           severity: warning
@@ -84,10 +84,10 @@ groups:
       - alert: LatencyBurnRateFast
         expr: |
           (
-            rate(krab_request_duration_ms_count[5m]) -
-            rate(krab_request_duration_ms_bucket{le="500"}[5m])
+            rate(krab_http_request_duration_seconds_count[5m]) -
+            rate(krab_http_request_duration_seconds_bucket{le="0.5"}[5m])
           ) /
-          (rate(krab_request_duration_ms_count[5m]) + 0.001) > 0.10
+          (rate(krab_http_request_duration_seconds_count[5m]) + 0.001) > 0.10
         for: 5m
         labels:
           severity: warning
@@ -101,10 +101,10 @@ groups:
       - alert: LatencyBurnRateSlow
         expr: |
           (
-            rate(krab_request_duration_ms_count[30m]) -
-            rate(krab_request_duration_ms_bucket{le="500"}[30m])
+            rate(krab_http_request_duration_seconds_count[30m]) -
+            rate(krab_http_request_duration_seconds_bucket{le="0.5"}[30m])
           ) /
-          (rate(krab_request_duration_ms_count[30m]) + 0.001) > 0.05
+          (rate(krab_http_request_duration_seconds_count[30m]) + 0.001) > 0.05
         for: 15m
         labels:
           severity: warning
@@ -149,3 +149,42 @@ groups:
           summary: "Auth failure budget burn (slow) on {{ $labels.job }}"
           description: "Auth failure rate remained above 5/s for 30m on {{ $labels.job }}."
           runbook: "plans/oncall_playbook.md#p2-auth-budget-burn"
+
+  - name: krab_protocol_parity
+    rules:
+      - alert: ProtocolErrorRateSkew
+        expr: |
+          (
+            max by (job) (
+              sum by (job, protocol) (rate(krab_http_responses_by_protocol_total{class="5xx"}[5m]))
+              /
+              (sum by (job, protocol) (rate(krab_http_requests_by_protocol_total[5m])) + 0.001)
+            )
+            /
+            1
+          )
+          -
+          (
+            min by (job) (
+              sum by (job, protocol) (rate(krab_http_responses_by_protocol_total{class="5xx"}[5m]))
+              /
+              (sum by (job, protocol) (rate(krab_http_requests_by_protocol_total[5m])) + 0.001)
+            )
+            /
+            1
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Protocol error-rate skew detected on {{ $labels.job }}"
+          description: "Difference between best/worst protocol error ratio exceeded 5% over 5m."
+
+      - alert: SplitServiceNoTraffic
+        expr: rate(krab_http_requests_by_protocol_total{job=~"users-rest|users-graphql|users-rpc"}[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No protocol traffic on {{ $labels.job }}"
+          description: "Split protocol service has no observed traffic for 10 minutes."

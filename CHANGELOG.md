@@ -49,3 +49,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic
 ### Fixed
 - `deny.toml` syntax errors corrected for `cargo-deny` compatibility (`unsound`, `yanked`, `unmaintained` values).
 - Deprecated `copyleft` key removed from `deny.toml` `[licenses]` section.
+
+## [0.1.1] - 2026-03-11
+
+### Added
+- Protocol flexibility rollout completion across auth/frontend/CLI:
+  - `service_auth` capability endpoint: `GET /api/v1/auth/capabilities`.
+  - REST-only auth guardrails tests for GraphQL/RPC non-exposure paths.
+  - `krab_cli` protocol-aware scaffolding flags:
+    - `krab gen service --exposure-mode ... --protocols ... --topology ...`
+  - `krab contract protocol-check` command for parity/resolver validation.
+- New public documentation: `docs/protocol_flexibility.md`.
+
+### Changed
+- `krab_core::http` auth open-path allowlist includes `/api/v1/auth/capabilities`.
+- Tracing includes additional protocol attributes:
+  - `krab.protocol`
+  - `krab.operation`
+  - `krab.selection_source`
+- Environment template expanded with `KRAB_PROTOCOL_*` configuration guidance.
+- Deployment and API docs updated with capability endpoint + split-topology notes.
+
+### Governance
+- Added protocol parity and exposure-mode policy section to `plans/api_governance.md`.

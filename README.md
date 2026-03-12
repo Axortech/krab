@@ -105,15 +105,15 @@ Krab follows a **"Server-First, Client-Opt-In"** architecture organized as a Car
 
 | Crate | Purpose |
 |---|---|
-| [`krab_core`](krab_core/) | Shared config, HTTP middleware, resilience, telemetry, DB governance, and signal system |
-| [`krab_macros`](krab_macros/) | Procedural macros (`view!`, `#[island]`) |
-| [`krab_client`](krab_client/) | WASM runtime for island hydration (browser) |
-| [`krab_server`](krab_server/) | Hyper/Tower server foundations |
-| [`service_auth`](service_auth/) | Authentication service (REST — JWT/OIDC token issuance) |
-| [`service_users`](service_users/) | Users service (GraphQL + PostgreSQL/SQLite) |
-| [`service_frontend`](service_frontend/) | SSR frontend service with island hydration |
-| [`krab_orchestrator`](krab_orchestrator/) | Multi-service process orchestrator |
-| [`krab_cli`](krab_cli/) | Developer CLI helpers (env-check, bootstrap) |
+| [`krab_core`](crates/framework/krab_core/) | Shared config, HTTP middleware, resilience, telemetry, DB governance, and signal system |
+| [`krab_macros`](crates/framework/krab_macros/) | Procedural macros (`view!`, `#[island]`) |
+| [`krab_client`](crates/framework/krab_client/) | WASM runtime for island hydration (browser) |
+| [`krab_server`](crates/framework/krab_server/) | Hyper/Tower server foundations |
+| [`service_auth`](services/service_auth/) | Authentication service (REST — JWT/OIDC token issuance) |
+| [`service_users`](services/service_users/) | Users service (GraphQL + PostgreSQL/SQLite) |
+| [`service_frontend`](services/service_frontend/) | SSR frontend service with island hydration |
+| [`krab_orchestrator`](crates/tooling/krab_orchestrator/) | Multi-service process orchestrator |
+| [`krab_cli`](crates/tooling/krab_cli/) | Developer CLI helpers (env-check, bootstrap) |
 
 ---
 
@@ -152,7 +152,9 @@ PostgreSQL includes enterprise features: versioned migrations with checksums, dr
 ### Authentication & Security
 
 - **JWT/OIDC** token issuance with key rotation (`KeyRing` with multiple `kid` support)
-- **Rate limiting** with configurable capacity and refill rates
+- **Rate limiting** with configurable capacity/refill and explicit store-failure policy (`KRAB_RATE_LIMIT_FAIL_OPEN`)
+- **JWT algorithm allowlist** via `KRAB_JWT_ALLOWED_ALGS`
+- **Proxy trust controls** via `KRAB_TRUST_PROXY_HEADERS` (forwarded headers are untrusted by default)
 - **Production secret enforcement**: Inline secrets are rejected in non-dev environments; must use `*_FILE` or `*_VAULT_REF` sourcing
 - **RBAC**: Admin scope/role gating on protected endpoints
 - **Token lifecycle**: Issue, refresh (with replay detection), revoke
@@ -170,6 +172,7 @@ Zero-tolerance dependency governance enforced via `cargo-deny`:
 
 - **Structured logging** via `tracing` with OpenTelemetry-aligned field names
 - **Prometheus metrics** at `/metrics/prometheus` on every service
+- **Prometheus compatibility aliases** maintained for legacy dashboard/alert migration (`krab_response_5xx_total`, `krab_request_duration_ms_*`)
 - **JSON metrics** at `/metrics` for programmatic consumption
 - **Health** (`/health`) and **readiness** (`/ready`) endpoints with dependency status
 - **Request correlation** via `x-request-id` header propagation
@@ -293,6 +296,7 @@ Current security posture:
 - ✅ No panic-driven startup paths
 - ✅ Rate limiting on authentication endpoints
 - ✅ CORS, compression, and request-id middleware on all services
+- ✅ Non-dev startup rejects empty CORS allowlist (`KRAB_CORS_ORIGINS` required in staging/prod)
 
 For the full security architecture, see [`docs/security.md`](docs/security.md).
 

@@ -24,7 +24,8 @@ KRAB_AUTH_MODE=jwt    # or oidc
 
 - **Token issuance**: `service_auth` issues HS256-signed JWT access + refresh token pairs.
 - **Key rotation**: `KeyRing` supports multiple signing keys (`kid`). The active key is selected via `KRAB_JWT_ACTIVE_KID`.
-- **Validation**: All services validate tokens against issuer (`KRAB_OIDC_ISSUER`) and audience (`KRAB_OIDC_AUDIENCE`) with 30-second leeway.
+- **Validation**: All services validate tokens against issuer (`KRAB_OIDC_ISSUER`) and audience (`KRAB_OIDC_AUDIENCE`) with clock-skew leeway.
+- **Algorithm allowlist**: Verification only accepts algorithms listed in `KRAB_JWT_ALLOWED_ALGS` (CSV). Defaults to `HS256` when unset.
 - **Refresh**: Single-use refresh tokens with replay detection (store-backed).
 - **Revocation**: Token revocation tracked in runtime store with TTL-based expiry.
 - **JWKS**: Key descriptors exposed at `/api/v1/auth/jwks`.
@@ -89,18 +90,37 @@ Rate limiting is applied globally via `krab_core::http` middleware:
 |---|---|---|
 | `KRAB_RATE_LIMIT_CAPACITY` | Maximum burst capacity | `120` |
 | `KRAB_RATE_LIMIT_REFILL_PER_SEC` | Token refill rate per second | `60` |
+| `KRAB_RATE_LIMIT_FAIL_OPEN` | Store-failure policy (`true`=allow, `false`=block) | `true` in `dev`, `false` otherwise |
 
 When the limit is exceeded, the service returns `HTTP 429 Too Many Requests`.
+
+If the distributed store is unavailable, policy is controlled by `KRAB_RATE_LIMIT_FAIL_OPEN`:
+
+- `true` (fail-open): request is allowed and a warning is emitted.
+- `false` (fail-closed): request is denied (`429`) and a warning is emitted.
 
 ---
 
 ## CORS
 
-CORS origins are configured via `KRAB_CORS_ORIGINS` (comma-separated). If empty or unset, all origins are allowed (`*`).
+CORS origins are configured via `KRAB_CORS_ORIGINS` (comma-separated).
+
+- In `staging`/`prod`, startup fails if `KRAB_CORS_ORIGINS` is empty.
+- In `dev`, wildcard fallback is allowed only when no explicit list is provided.
 
 ```sh
 KRAB_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
 ```
+
+## Trusted Proxy Headers
+
+Client IP extraction defaults to **not trusting** proxy headers.
+
+| Variable | Description | Default |
+|---|---|---|
+| `KRAB_TRUST_PROXY_HEADERS` | Trust `x-forwarded-for` / `x-real-ip` for client IP | `false` |
+
+When disabled, middleware ignores forwarded headers and uses an unknown fallback identity for per-IP controls.
 
 ---
 

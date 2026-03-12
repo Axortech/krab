@@ -3,8 +3,8 @@ name: Database Lifecycle
 on:
   pull_request:
     paths:
-      - 'krab_core/src/db.rs'
-      - 'service_users/**'
+      - 'crates/framework/krab_core/src/db.rs'
+      - 'services/service_users/**'
   push:
     branches:
       - main

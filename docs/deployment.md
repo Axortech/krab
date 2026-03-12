@@ -279,6 +279,39 @@ For SLO targets and alert configuration, see [`plans/slo_alerts.md`](../plans/sl
 
 ---
 
+## Protocol Flexibility Deployment Configuration
+
+Use protocol controls to tune service exposure and deployment topology.
+
+### Single-service topology (default)
+
+```env
+KRAB_PROTOCOL_TOPOLOGY=single_service
+KRAB_PROTOCOL_EXPOSURE_MODE=single
+KRAB_PROTOCOL_ENABLED=rest
+KRAB_PROTOCOL_DEFAULT=rest
+```
+
+### Split-services topology
+
+```env
+KRAB_PROTOCOL_TOPOLOGY=split_services
+KRAB_PROTOCOL_EXPOSURE_MODE=multi
+KRAB_PROTOCOL_ENABLED=rest,graphql,rpc
+KRAB_PROTOCOL_DEFAULT=rest
+KRAB_PROTOCOL_SPLIT_TARGETS_JSON={"users":{"rest":"http://users-rest:3002","graphql":"http://users-graphql:3002","rpc":"http://users-rpc:3002"}}
+```
+
+### Per-service protocol controls
+
+- `KRAB_PROTOCOL_ENABLED=rest|graphql|rpc` (CSV)
+- `KRAB_PROTOCOL_EXPOSURE_MODE=single|multi`
+- `KRAB_PROTOCOL_DEFAULT=rest|graphql|rpc` (must be in enabled set)
+
+These are evaluated per process, so different services can run different policy envelopes.
+
+---
+
 ## Pre-deployment Checklist
 
 Before deploying to production:

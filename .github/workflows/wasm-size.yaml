@@ -3,9 +3,9 @@ name: WASM Bundle Size Gate
 on:
   pull_request:
     paths:
-      - 'krab_client/**'
-      - 'krab_core/**'
-      - 'krab_macros/**'
+      - 'crates/framework/krab_client/**'
+      - 'crates/framework/krab_core/**'
+      - 'crates/framework/krab_macros/**'
   push:
     branches:
       - main
@@ -42,7 +42,7 @@ jobs:
           key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build WASM bundle
-        working-directory: krab_client
+        working-directory: crates/framework/krab_client
         run: wasm-pack build --release --target web --out-dir ../dist/pkg
 
       - name: Measure bundle size

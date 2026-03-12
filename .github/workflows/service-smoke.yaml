@@ -5,10 +5,10 @@ on:
     branches: [main]
   pull_request:
     paths:
-      - "service_auth/**"
-      - "service_users/**"
-      - "service_frontend/**"
-      - "krab_core/**"
+      - "services/service_auth/**"
+      - "services/service_users/**"
+      - "services/service_frontend/**"
+      - "crates/framework/krab_core/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/service-smoke.yaml"
